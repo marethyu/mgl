@@ -3,12 +3,11 @@
 /*
 TODO:
 - test real models from wavefront .obj file
-- zoom in/out
+- should i change trackball radius when zooming?
 - coloured faces
 */
 
 #include <algorithm>
-#include <iostream>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
@@ -17,6 +16,7 @@ TODO:
 
 using vec2 = Vector<double, 2>;
 using vec3 = Vector<double, 3>;
+using mat2x2 = Matrix<double, 2, 2>;
 using mat2x3 = Matrix<double, 2, 3>;
 
 /*
@@ -198,7 +198,7 @@ int main (int argc, char** argv)
     std::copy(TriangularPrism.vertex, TriangularPrism.vertex + vertexes, vertex);
     std::copy(&TriangularPrism.edge[0][0], &TriangularPrism.edge[0][0] + edges * 2, &edge[0][0]);
 #endif
-    double angle = 0.0; // for continuous clockwise rotation about y-axis
+    double angle = 0.0; // for continuous counterclockwise rotation about y-axis
     const double dAngle = 0.01;
 
     bool mousepressed = false;
@@ -207,7 +207,9 @@ int main (int argc, char** argv)
     double theta;
 
     Quaternion<double> currentQ(true); // unit quaternion
-    Quaternion<double> lastQ(zaxis, M_PI / 4.0); // the polygon initially rotated 45 degree counterclockwise about z-axis
+    Quaternion<double> lastQ(zaxis, M_PI / 4.0); // the polygon is initially rotated 45 degree counterclockwise about z-axis
+
+    double zoomFactor = 1.0;
 
     while (!quit)
     {
@@ -250,6 +252,25 @@ int main (int argc, char** argv)
                 }
                 break;
             }
+            case SDL_KEYDOWN:
+            {
+                switch (event.key.keysym.sym)
+                {
+                case SDLK_z:
+                {
+                    zoomFactor += 0.01;
+                    if (zoomFactor > 1.5) zoomFactor = 1.5;
+                    break;
+                }
+                case SDLK_x:
+                {
+                    zoomFactor -= 0.01;
+                    if (zoomFactor < 0.5) zoomFactor = 0.5;
+                    break;
+                }
+                }
+                break;
+            }
             }
         }
 
@@ -264,9 +285,12 @@ int main (int argc, char** argv)
         for (int i = 0; i < vertexes; ++i)
         {
             Quaternion<double> rotatey(yaxis, angle);
-            Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be  composing by simply multiplying quaternions!
-            vec3 rotated = vertex[i].Rotate3D(rotation);
-            proj[idx++] = project2D * rotated;
+            Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
+
+            vec2 projected = project2D * vertex[i].Rotate3D(rotation);
+            mat2x2 zoom = {{zoomFactor, 0}, {0, zoomFactor}};
+
+            proj[idx++] = zoom * projected;
         }
 
         for (int i = 0; i < edges; ++i)
