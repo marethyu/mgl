@@ -198,6 +198,9 @@ int main (int argc, char** argv)
     std::copy(TriangularPrism.vertex, TriangularPrism.vertex + vertexes, vertex);
     std::copy(&TriangularPrism.edge[0][0], &TriangularPrism.edge[0][0] + edges * 2, &edge[0][0]);
 #endif
+    double angle = 0.0; // for continuous clockwise rotation about y-axis
+    const double dAngle = 0.01;
+
     bool mousepressed = false;
 
     vec3 p, q, n;
@@ -260,7 +263,8 @@ int main (int argc, char** argv)
 
         for (int i = 0; i < vertexes; ++i)
         {
-            Quaternion<double> rotation = currentQ * lastQ; // rotations can be  composing by simply multiplying two quaternions!
+            Quaternion<double> rotatey(yaxis, angle);
+            Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be  composing by simply multiplying quaternions!
             vec3 rotated = vertex[i].Rotate3D(rotation);
             proj[idx++] = project2D * rotated;
         }
@@ -274,6 +278,8 @@ int main (int argc, char** argv)
 
         SDL_RenderPresent(renderer);
         SDL_Delay(20);
+
+        angle += dAngle;
     }
 
     SDL_DestroyRenderer(renderer);
