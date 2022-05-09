@@ -2,14 +2,13 @@
 
 /*
 TODO:
-- verify whether rotations are correct
 - test real models from wavefront .obj file
 - zoom in/out
-- mouse kontrol (trackball control)
 - coloured faces
 */
 
 #include <algorithm>
+#include <iostream>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
@@ -23,18 +22,23 @@ using mat2x3 = Matrix<double, 2, 3>;
 /*
 Coordinate system:
 
-  y  z
-  | /
-  |/
-  +---x
+    y
+    |
+    |
+    +---x
+   /
+  z
 
  x - right
  y - up
- z - into the screen
+ z - out the screen
 */
 
 const int canvas_width = 600;
 const int canvas_height = 600;
+
+const int centerx = (canvas_width - 1) / 2;
+const int centery = (canvas_height - 1) / 2;
 
 const int MAXV = 50;
 const int MAXE = 100;
@@ -128,13 +132,30 @@ const WireframePolygon Cube = {
 const mat2x3 project2D = {{200, 0,     0},
                           {0,   200,   0}};
 
-const vec3 xaxis = {1, 0, 0};
-const vec3 yaxis = {0, 1, 0};
-const vec3 zaxis = {0, 0, 1};
-const vec3 xyzaxis = xaxis + yaxis + zaxis;
+inline double map(double s, double a1, double a2, double b1, double b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
 
-inline int mapX(double cx) { return canvas_width / 2 + (int) cx; }
-inline int mapY(double cy) { return canvas_height / 2 - (int) cy; }
+inline int mapX(double cx) { return map(cx, -centerx, centery, 0, canvas_width - 1); }
+inline int mapY(double cy) { return map(cy, centery, -centery, 0, canvas_height - 1); }
+
+vec3 project(int mx, int my)
+{
+    const double r = 1.0;
+
+    double x = map(mx, 0, canvas_width - 1, -1, 1);
+    double y = map(my, 0, canvas_height - 1, 1, -1);
+    double z;
+
+    if (x * x + y * y <= r * r / 2.0)
+    {
+        z = std::sqrt(r - x * x - y * y);
+    }
+    else
+    {
+        z = (r * r / 2.0) / std::sqrt(x * x + y * y);
+    }
+
+    return vec3(x, y, z);
+}
 
 int main (int argc, char** argv)
 {
@@ -153,6 +174,7 @@ int main (int argc, char** argv)
 
     bool quit = false;
 
+#ifdef USE_CUBE
     const int vertexes = Cube.vertexes;
     const int edges = Cube.edges;
 
@@ -161,8 +183,23 @@ int main (int argc, char** argv)
 
     std::copy(Cube.vertex, Cube.vertex + vertexes, vertex);
     std::copy(&Cube.edge[0][0], &Cube.edge[0][0] + edges * 2, &edge[0][0]);
+#else
+    const int vertexes = TriangularPrism.vertexes;
+    const int edges = TriangularPrism.edges;
 
-    double dAngle = 0.03;
+    vec3 vertex[vertexes];
+    int edge[edges][2];
+
+    std::copy(TriangularPrism.vertex, TriangularPrism.vertex + vertexes, vertex);
+    std::copy(&TriangularPrism.edge[0][0], &TriangularPrism.edge[0][0] + edges * 2, &edge[0][0]);
+#endif
+
+    bool mousepressed = false;
+
+    vec3 p, q, n;
+    double theta;
+
+    const double damping = 0.2;
 
     while (!quit)
     {
@@ -173,6 +210,35 @@ int main (int argc, char** argv)
             case SDL_QUIT:
             {
                 quit = true;
+                break;
+            }
+            case SDL_MOUSEBUTTONDOWN:
+            {
+                mousepressed = true;
+
+                p = project(event.motion.x, event.motion.y);
+
+                break;
+            }
+            case SDL_MOUSEBUTTONUP:
+            {
+                mousepressed = false;
+                break;
+            }
+            case SDL_MOUSEMOTION:
+            {
+                if (mousepressed)
+                {
+                    q = project(event.motion.x, event.motion.y);
+
+                    n = p.Cross(q);
+                    theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude())) * damping;
+
+                    for (int i = 0; i < vertexes; ++i)
+                    {
+                        vertex[i] = vertex[i].Rotate3D(n, theta);
+                    }
+                }
                 break;
             }
             }
@@ -188,16 +254,7 @@ int main (int argc, char** argv)
 
         for (int i = 0; i < vertexes; ++i)
         {
-            vec2 projected = project2D * vertex[i];
-            SDL_RenderDrawPoint(renderer, mapX(projected[0]), mapY(projected[1]));
-            proj[idx++] = projected;
-
-            // update using rotation matrixes
-            // vertex[i] = vertex[i].RotateY3D(dAngle).RotateX3D(dAngle).RotateZ3D(dAngle);
-
-            // update using quaternions
-            vertex[i] = vertex[i].Rotate3D(yaxis, dAngle).Rotate3D(xaxis, dAngle).Rotate3D(zaxis, dAngle);
-            // vertex[i] = vertex[i].Rotate3D(xyzaxis, dAngle);
+            proj[idx++] = project2D * vertex[i];
         }
 
         for (int i = 0; i < edges; ++i)
@@ -208,7 +265,6 @@ int main (int argc, char** argv)
         }
 
         SDL_RenderPresent(renderer);
-
         SDL_Delay(20);
     }
 
@@ -217,6 +273,4 @@ int main (int argc, char** argv)
     SDL_Quit();
 
     return EXIT_SUCCESS;
-
-    return 0;
 }
