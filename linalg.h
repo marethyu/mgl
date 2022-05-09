@@ -52,6 +52,8 @@ public:
 
     // Rotate this 3D vector about arbitrary axis and angle
     Vector Rotate3D(const Vector<T, 3>& axis, T angle) const;
+    // Same as Rotate3D. Note that q must be a unit quaternion.
+    Vector Rotate3D(const Quaternion<T>& q) const;
 
     size_t Dimensions() const { return N; }
 private:
@@ -282,8 +284,18 @@ Vector<T, N> Vector<T, N>::Rotate3D(const Vector<T, 3>& axis, T angle) const
         throw std::invalid_argument("Rotate3D is applicable to 3D vectors only");
     }
 
-    Quaternion<T> p(0, *this); // pure quaternion
-    Quaternion<T> q(std::cos(angle / 2), axis.Unit() * std::sin(angle / 2)); // real (unit) quaternion
+    return Rotate3D(Quaternion<T>(axis, angle));
+}
+
+template<typename T, size_t N>
+Vector<T, N> Vector<T, N>::Rotate3D(const Quaternion<T>& q) const
+{
+    if (N != 3)
+    {
+        throw std::invalid_argument("Rotate3D is applicable to 3D vectors only");
+    }
+
+    Quaternion<T> p(0, *this); // pure quaternion for this vector
 
     p = q * p * q.Conjugate(); // conjugate and inverse are the same in this case
 
@@ -588,8 +600,9 @@ template<typename T>
 class Quaternion
 {
 public:
-    Quaternion() : s_(0) {}
+    Quaternion(bool unit = false) : s_(unit) {}
     Quaternion(T s, const Vector<T, 3>& v) : s_(s), v_(v) {}
+    Quaternion(const Vector<T, 3>& axis, T angle);
     Quaternion(const Quaternion& q) { *this = q; }
     ~Quaternion() {}
 
@@ -619,6 +632,13 @@ private:
     T s_;
     Vector<T, 3> v_;
 };
+
+template<typename T>
+Quaternion<T>::Quaternion(const Vector<T, 3>& axis, T angle)
+{
+    s_ = std::cos(angle / 2);
+    v_ = axis.Unit() * std::sin(angle / 2);
+}
 
 template<typename T>
 Quaternion<T>& Quaternion<T>::operator=(const Quaternion<T>& q)

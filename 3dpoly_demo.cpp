@@ -132,6 +132,11 @@ const WireframePolygon Cube = {
 const mat2x3 project2D = {{200, 0,     0},
                           {0,   200,   0}};
 
+const vec3 xaxis = {1, 0, 0};
+const vec3 yaxis = {0, 1, 0};
+const vec3 zaxis = {0, 0, 1};
+
+/* map s from [a1...a2] to [b1...b2] */
 inline double map(double s, double a1, double a2, double b1, double b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
 
 inline int mapX(double cx) { return map(cx, -centerx, centery, 0, canvas_width - 1); }
@@ -193,13 +198,13 @@ int main (int argc, char** argv)
     std::copy(TriangularPrism.vertex, TriangularPrism.vertex + vertexes, vertex);
     std::copy(&TriangularPrism.edge[0][0], &TriangularPrism.edge[0][0] + edges * 2, &edge[0][0]);
 #endif
-
     bool mousepressed = false;
 
     vec3 p, q, n;
     double theta;
 
-    const double damping = 0.2;
+    Quaternion<double> currentQ(true); // unit quaternion
+    Quaternion<double> lastQ(zaxis, M_PI / 4.0); // the polygon initially rotated 45 degree counterclockwise about z-axis
 
     while (!quit)
     {
@@ -223,6 +228,10 @@ int main (int argc, char** argv)
             case SDL_MOUSEBUTTONUP:
             {
                 mousepressed = false;
+
+                lastQ = currentQ * lastQ;
+                currentQ = Quaternion<double>(true);
+
                 break;
             }
             case SDL_MOUSEMOTION:
@@ -232,12 +241,9 @@ int main (int argc, char** argv)
                     q = project(event.motion.x, event.motion.y);
 
                     n = p.Cross(q);
-                    theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude())) * damping;
+                    theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
-                    for (int i = 0; i < vertexes; ++i)
-                    {
-                        vertex[i] = vertex[i].Rotate3D(n, theta);
-                    }
+                    currentQ = Quaternion<double>(n, theta);
                 }
                 break;
             }
@@ -254,7 +260,9 @@ int main (int argc, char** argv)
 
         for (int i = 0; i < vertexes; ++i)
         {
-            proj[idx++] = project2D * vertex[i];
+            Quaternion<double> rotation = currentQ * lastQ; // rotations can be  composing by simply multiplying two quaternions!
+            vec3 rotated = vertex[i].Rotate3D(rotation);
+            proj[idx++] = project2D * rotated;
         }
 
         for (int i = 0; i < edges; ++i)
