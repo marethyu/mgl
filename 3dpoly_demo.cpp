@@ -55,13 +55,14 @@ struct WireframePolygon
 /*
 Triangular prism
 
-        +5
-       / \
-      /   \
-     +4   +6
-    +2    /
-   /  \  /
-  +1---+3
+          +2
+         / \
+        /   \
+      +1    +3
+     +5     /
+     / \   /
+    /   \ /
+  +4----+6
 
 */
 const WireframePolygon TriangularPrism = {
@@ -91,13 +92,13 @@ const WireframePolygon TriangularPrism = {
 /*
 Cube
 
-    +7-------+8
+    +6-------+5
    /         /|
- +6--------+5 |
+ +7--------+8 |
   |         | |
-  | +2      |+3
+  | +1      |+4
   |         |/
- +1--------+4
+ +2--------+3
 
 */
 const WireframePolygon Cube = {
@@ -280,7 +281,6 @@ int main (int argc, char** argv)
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
         vec2 proj[vertexes];
-        int idx = 0;
 
         for (int i = 0; i < vertexes; ++i)
         {
@@ -288,9 +288,9 @@ int main (int argc, char** argv)
             Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
 
             vec2 projected = project2D * vertex[i].Rotate3D(rotation);
-            mat2x2 zoom = {{zoomFactor, 0}, {0, zoomFactor}};
+            mat2x2 zoom = mat2x2(true) * zoomFactor;
 
-            proj[idx++] = zoom * projected;
+            proj[i] = zoom * projected;
         }
 
         for (int i = 0; i < edges; ++i)
