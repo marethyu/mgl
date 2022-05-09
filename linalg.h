@@ -602,7 +602,7 @@ class Quaternion
 public:
     Quaternion(bool unit = false) : s_(unit) {}
     Quaternion(T s, const Vector<T, 3>& v) : s_(s), v_(v) {}
-    Quaternion(const Vector<T, 3>& axis, T angle);
+    Quaternion(const Vector<T, 3>& axis, T angle); // Create a unit quaternion from rotation axis and angle
     Quaternion(const Quaternion& q) { *this = q; }
     ~Quaternion() {}
 
