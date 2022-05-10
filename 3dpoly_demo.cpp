@@ -280,24 +280,20 @@ int main (int argc, char** argv)
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-        vec2 proj[vertexes];
-
-        for (int i = 0; i < vertexes; ++i)
+        for (int i = 0; i < edges; ++i)
         {
+            vec3 v1 = vertex[edge[i][0]];
+            vec3 v2 = vertex[edge[i][1]];
+
             Quaternion<double> rotatey(yaxis, angle);
             Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
 
-            vec2 projected = project2D * vertex[i].Rotate3D(rotation);
             mat2x2 zoom = mat2x2(true) * zoomFactor;
 
-            proj[i] = zoom * projected;
-        }
+            vec2 p1 = zoom * project2D * v1.Rotate3D(rotation);
+            vec2 p2 = zoom * project2D * v2.Rotate3D(rotation);
 
-        for (int i = 0; i < edges; ++i)
-        {
-            vec2 v1 = proj[edge[i][0]];
-            vec2 v2 = proj[edge[i][1]];
-            SDL_RenderDrawLine(renderer, mapX(v1[0]), mapY(v1[1]), mapX(v2[0]), mapY(v2[1]));
+            SDL_RenderDrawLine(renderer, mapX(p1[0]), mapY(p1[1]), mapX(p2[0]), mapY(p2[1]));
         }
 
         SDL_RenderPresent(renderer);
