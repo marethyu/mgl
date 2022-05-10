@@ -200,7 +200,7 @@ int main (int argc, char** argv)
     std::copy(&TriangularPrism.edge[0][0], &TriangularPrism.edge[0][0] + edges * 2, &edge[0][0]);
 #endif
     double angle = 0.0; // for continuous counterclockwise rotation about y-axis
-    const double dAngle = 0.01;
+    const double dAngle = 0.001;
 
     bool mousepressed = false;
 
@@ -280,15 +280,15 @@ int main (int argc, char** argv)
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
+        Quaternion<double> rotatey(yaxis, angle);
+        Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
+
+        mat2x2 zoom = mat2x2(true) * zoomFactor;
+
         for (int i = 0; i < edges; ++i)
         {
             vec3 v1 = vertex[edge[i][0]];
             vec3 v2 = vertex[edge[i][1]];
-
-            Quaternion<double> rotatey(yaxis, angle);
-            Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
-
-            mat2x2 zoom = mat2x2(true) * zoomFactor;
 
             vec2 p1 = zoom * project2D * v1.Rotate3D(rotation);
             vec2 p2 = zoom * project2D * v2.Rotate3D(rotation);
@@ -297,7 +297,6 @@ int main (int argc, char** argv)
         }
 
         SDL_RenderPresent(renderer);
-        SDL_Delay(20);
 
         angle += dAngle;
     }
