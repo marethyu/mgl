@@ -46,23 +46,21 @@ const Colour rainbow[7] = {
 
 const float ZMIN = -1.0;
 
-inline bool equalf(float f1, float f2)
-{
-    return (std::fabs(f1 - f2) <= std::numeric_limits<float>::epsilon() * std::fmax(std::fabs(f1), std::fabs(f2)));
-}
-
-class Display
+class RendererBase3D
 {
 public:
-    Display(int width, int height);
-    ~Display();
+    RendererBase3D(int width, int height);
+    ~RendererBase3D();
 
     void Create(HWND hwnd);
-    void Update();
-    void Render();
+    void Show();
     void CleanUp();
     void Destroy();
-private:
+
+    virtual void Init() = 0;
+    virtual void Update() = 0;
+    virtual void Render() = 0;
+protected:
     SDL_Window *wnd;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
@@ -85,19 +83,20 @@ private:
     void DrawLine(float x1, float y1, float z1, float x2, float y2, float z2, const Colour& colour);
 
     bool WithinBounds(float x, float y, float z); // for clipping
+    bool Equalf(float f1, float f2);
     void Swap(float& x1, float& y1, float& z1, float& x2, float& y2, float& z2);
 };
 
-Display::Display(int width, int height)
+RendererBase3D::RendererBase3D(int width, int height)
   : width(width), height(height), pixels(width * height), zdepth(width * height)
 {
     
 }
 
-Display::~Display()
+RendererBase3D::~RendererBase3D()
 {}
 
-void Display::Create(HWND hWnd)
+void RendererBase3D::Create(HWND hWnd)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
@@ -125,53 +124,22 @@ void Display::Create(HWND hWnd)
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
         std::exit(1);
     }
+
+    Init();
 }
 
-void Display::Update()
+void RendererBase3D::Show()
 {
     std::fill(zdepth.begin(), zdepth.end(), ZMIN);
-/*
-    float centerX = width / 2.0;
-    float centerY = height / 2.0;
+    std::fill(pixels.begin(), pixels.end(), 0);
+    Render();
 
-    float radius = 80.0;
-    float dr = 20.0;
-
-    float z = 0.0;
-    float dz = 10.0;
-    float middlez = 35.0;
-
-    for (int i = 0; i < 7; ++i)
-    {
-        float angle = 0.0;
-
-        while (angle < 360.0)
-        {
-            float x = centerX + radius * std::cos(angle);
-            float y = centerY + radius * std::sin(angle);
-
-            DrawLine(centerX, centerY, middlez, x, y, z, rainbow[i]);
-
-            angle += 1.0;
-        }
-
-        radius += dr;
-        z += dz;
-    }
-*/
-    DrawFilledTriangle(10, 50, 10, 400, 100, 10, 290, 380, 10, RED);
-    DrawFilledTriangle(50, 350, 2, 130, 40, 20, 380, 200, 5, GREEN);
-    DrawWireFrameTriangle(250, 250, 0, 70, 400, 0, 320, 400, 0, BLUE);
-}
-
-void Display::Render()
-{
     SDL_UpdateTexture(texture, NULL, &pixels[0], width * 4);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 }
 
-void Display::CleanUp()
+void RendererBase3D::CleanUp()
 {
     SDL_DestroyTexture(texture);
     texture = NULL;
@@ -185,30 +153,24 @@ void Display::CleanUp()
     SDL_Quit();
 }
 
-void Display::Destroy()
+void RendererBase3D::Destroy()
 {
     PostQuitMessage(0);
 }
 
 // Nice reference: http://www.sunshine2k.de/coding/java/TriangleRasterization/generalTriangle.png
-void Display::DrawFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
+void RendererBase3D::DrawFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
 {
-    // Ensure that each vertex fits in the screen
-    if (!WithinBounds(x1, y1, z1) || !WithinBounds(x2, y2, z2) || !WithinBounds(x3, y3, z3))
-    {
-        return;
-    }
-
     // Sort p1, p2, and p3 so that p1 < p2 < p3
     if (y2 < y1) { Swap(x2, y2, z2, x1, y1, z1); }
     if (y3 < y1) { Swap(x3, y3, z3, x1, y1, z1); }
     if (y3 < y2) { Swap(x3, y3, z3, x2, y2, z2); }
 
-    if (equalf(y2, y3))
+    if (Equalf(y2, y3))
     {
         DrawUpperFilledTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, colour);
     }
-    else if (equalf(y1, y2))
+    else if (Equalf(y1, y2))
     {
         DrawLowerFilledTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, colour);
     }
@@ -233,7 +195,7 @@ void Display::DrawFilledTriangle(float x1, float y1, float z1, float x2, float y
     }
 }
 
-void Display::DrawUpperFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
+void RendererBase3D::DrawUpperFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
 {
     float dy1 = std::fabs(y2 - y1);
     float dy2 = std::fabs(y3 - y1);
@@ -259,7 +221,7 @@ void Display::DrawUpperFilledTriangle(float x1, float y1, float z1, float x2, fl
     }
 }
 
-void Display::DrawLowerFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
+void RendererBase3D::DrawLowerFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
 {
     float dy1 = std::fabs(y3 - y1);
     float dy2 = std::fabs(y3 - y2);
@@ -285,7 +247,7 @@ void Display::DrawLowerFilledTriangle(float x1, float y1, float z1, float x2, fl
     }
 }
 
-void Display::DrawWireFrameTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
+void RendererBase3D::DrawWireFrameTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
 {
     DrawLine(x1, y1, z1, x2, y2, z2, colour);
     DrawLine(x1, y1, z1, x3, y3, z3, colour);
@@ -293,7 +255,7 @@ void Display::DrawWireFrameTriangle(float x1, float y1, float z1, float x2, floa
 }
 
 // Adapted from https://github.com/ssloy/tinyrenderer/wiki/Lesson-1:-Bresenham%E2%80%99s-Line-Drawing-Algorithm
-void Display::DrawLine(float x1, float y1, float z1, float x2, float y2, float z2, const Colour& colour)
+void RendererBase3D::DrawLine(float x1, float y1, float z1, float x2, float y2, float z2, const Colour& colour)
 {
     bool steep = false;
 
@@ -368,23 +330,104 @@ void Display::DrawLine(float x1, float y1, float z1, float x2, float y2, float z
     }
 }
 
-bool Display::WithinBounds(float x, float y, float z)
+bool RendererBase3D::WithinBounds(float x, float y, float z)
 {
     return x >= 0.0 && x < width &&
            y >= 0.0 && y < height &&
            z >= 0.0;
 }
 
-void Display::Swap(float& x1, float& y1, float& z1, float& x2, float& y2, float& z2)
+bool RendererBase3D::Equalf(float f1, float f2)
+{
+    return (std::fabs(f1 - f2) <= std::numeric_limits<float>::epsilon() * std::fmax(std::fabs(f1), std::fabs(f2)));
+}
+
+void RendererBase3D::Swap(float& x1, float& y1, float& z1, float& x2, float& y2, float& z2)
 {
     std::swap(x1, x2);
     std::swap(y1, y2);
     std::swap(z1, z2);
 }
 
+class TestPrimitives : public RendererBase3D
+{
+public:
+    TestPrimitives(int width, int height);
+    ~TestPrimitives();
+
+    void Init();
+    void Update();
+    void Render();
+private:
+    float radius;
+    float angle, da;
+};
+
+TestPrimitives::TestPrimitives(int width, int height)
+  : RendererBase3D(width, height)
+{}
+
+TestPrimitives::~TestPrimitives()
+{}
+
+void TestPrimitives::Init()
+{
+    radius = 180.0;
+    angle = 0.0;
+    da = 0.01;
+}
+
+void TestPrimitives::Update()
+{
+    angle += da;
+}
+
+void TestPrimitives::Render()
+{
+/*
+    float centerX = width / 2.0;
+    float centerY = height / 2.0;
+
+    float radius = 80.0;
+    float dr = 20.0;
+
+    float z = 0.0;
+    float dz = 10.0;
+    float middlez = 35.0;
+
+    for (int i = 0; i < 7; ++i)
+    {
+        float angle = 0.0;
+
+        while (angle < 360.0)
+        {
+            float x = centerX + radius * std::cos(angle);
+            float y = centerY + radius * std::sin(angle);
+
+            DrawLine(centerX, centerY, middlez, x, y, z, rainbow[i]);
+
+            angle += 1.0;
+        }
+
+        radius += dr;
+        z += dz;
+    }
+*/
+    DrawFilledTriangle(10, 50, 10, 400, 100, 10, 290, 380, 10, RED);
+    DrawFilledTriangle(50, 350, 2, 130, 40, 20, 380, 200, 5, GREEN);
+    DrawWireFrameTriangle(250, 250, 0, 70, 400, 0, 320, 400, 0, BLUE);
+
+    float centerX = width / 2.0;
+    float centerY = height / 2.0;
+    float x = centerX + radius * std::cos(angle);
+    float y = centerY + radius * std::sin(angle);
+
+    DrawLine(centerX, centerY, 9, x, y, 9, INDIGO);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    static Display app(SCREEN_WIDTH, SCREEN_HEIGHT);
+    static TestPrimitives app(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     switch (msg)
     {
@@ -407,7 +450,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     case WM_PAINT:
     {
-        app.Render();
+        app.Show();
         break;
     }
     case WM_CLOSE:
