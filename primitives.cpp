@@ -10,7 +10,6 @@
 #include <SDL2/SDL.h>
 
 #define ID_TIMER 1
-#define UPDATE_INTERVAL 0
 
 struct Colour
 {
@@ -276,7 +275,7 @@ public:
     TestPrimitives(int width, int height);
     ~TestPrimitives();
 
-    void Create(HWND hwnd);
+    void Create(HWND hwnd, int updateInterval);
     void Show();
     void CleanUp();
     void Destroy();
@@ -285,6 +284,8 @@ public:
     void Update();
     void Render();
 private:
+    HWND hwnd;
+
     SDL_Window *wnd;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
@@ -300,7 +301,7 @@ TestPrimitives::TestPrimitives(int width, int height)
 TestPrimitives::~TestPrimitives()
 {}
 
-void TestPrimitives::Create(HWND hWnd)
+void TestPrimitives::Create(HWND hWnd, int updateInterval)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
@@ -329,6 +330,14 @@ void TestPrimitives::Create(HWND hWnd)
         std::exit(1);
     }
 
+    if(!SetTimer(hWnd, ID_TIMER, updateInterval, NULL))
+    {
+        MessageBox(hWnd, "Could not set timer!", "errYor", MB_OK | MB_ICONEXCLAMATION);
+        PostQuitMessage(1);
+    }
+
+    hwnd = hWnd;
+
     Init();
 }
 
@@ -355,6 +364,7 @@ void TestPrimitives::CleanUp()
     wnd = NULL;
 
     SDL_Quit();
+    KillTimer(hwnd, ID_TIMER);
 }
 
 void TestPrimitives::Destroy()
@@ -396,13 +406,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        app.Create(hWnd);
-
-        if(!SetTimer(hWnd, ID_TIMER, UPDATE_INTERVAL, NULL))
-        {
-            MessageBox(hWnd, "Could not set timer!", "errYor", MB_OK | MB_ICONEXCLAMATION);
-            PostQuitMessage(1);
-        }
+        app.Create(hWnd, 0);
         break;
     }
     case WM_TIMER:
@@ -419,13 +423,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_CLOSE:
     {
         app.CleanUp();
-        KillTimer(hWnd, ID_TIMER);
         DestroyWindow(hWnd);
         break;
     }
     case WM_DESTROY:
+    {
         app.Destroy();
         break;
+    }
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
