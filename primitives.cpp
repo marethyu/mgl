@@ -34,37 +34,20 @@ const Colour BLUE(0, 0, 255, 255);
 const Colour INDIGO(75, 0, 130, 255);
 const Colour VIOLET(148, 0, 211, 255);
 
-const Colour rainbow[7] = {
-    RED,
-    ORANGE,
-    YELLOW,
-    GREEN,
-    BLUE,
-    INDIGO,
-    VIOLET
-};
-
 const float ZMIN = -1.0;
 
+// Platform indepentent base class for programs that use 3D graphics
 class RendererBase3D
 {
 public:
     RendererBase3D(int width, int height);
     ~RendererBase3D();
 
-    void Create(HWND hwnd);
-    void Show();
-    void CleanUp();
-    void Destroy();
-
+    // Must be overriden
     virtual void Init() = 0;
     virtual void Update() = 0;
     virtual void Render() = 0;
 protected:
-    SDL_Window *wnd;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-
     int width;
     int height;
 
@@ -95,68 +78,6 @@ RendererBase3D::RendererBase3D(int width, int height)
 
 RendererBase3D::~RendererBase3D()
 {}
-
-void RendererBase3D::Create(HWND hWnd)
-{
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s", SDL_GetError());
-        std::exit(1);
-    }
-
-    wnd = SDL_CreateWindowFrom(hWnd);
-    if (wnd == NULL)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window: %s", SDL_GetError());
-        std::exit(1);
-    }
-
-    renderer = SDL_CreateRenderer(wnd, -1, SDL_RENDERER_ACCELERATED);
-    if (renderer == NULL)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create renderer: %s", SDL_GetError());
-        std::exit(1);
-    }
-
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (texture == NULL)
-    {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
-        std::exit(1);
-    }
-
-    Init();
-}
-
-void RendererBase3D::Show()
-{
-    std::fill(zdepth.begin(), zdepth.end(), ZMIN);
-    std::fill(pixels.begin(), pixels.end(), 0);
-    Render();
-
-    SDL_UpdateTexture(texture, NULL, &pixels[0], width * 4);
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-}
-
-void RendererBase3D::CleanUp()
-{
-    SDL_DestroyTexture(texture);
-    texture = NULL;
-
-    SDL_DestroyRenderer(renderer);
-    renderer = NULL;
-
-    SDL_DestroyWindow(wnd);
-    wnd = NULL;
-
-    SDL_Quit();
-}
-
-void RendererBase3D::Destroy()
-{
-    PostQuitMessage(0);
-}
 
 // Nice reference: http://www.sunshine2k.de/coding/java/TriangleRasterization/generalTriangle.png
 void RendererBase3D::DrawFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
@@ -355,10 +276,19 @@ public:
     TestPrimitives(int width, int height);
     ~TestPrimitives();
 
+    void Create(HWND hwnd);
+    void Show();
+    void CleanUp();
+    void Destroy();
+
     void Init();
     void Update();
     void Render();
 private:
+    SDL_Window *wnd;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+
     float radius;
     float angle, da;
 };
@@ -369,6 +299,68 @@ TestPrimitives::TestPrimitives(int width, int height)
 
 TestPrimitives::~TestPrimitives()
 {}
+
+void TestPrimitives::Create(HWND hWnd)
+{
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s", SDL_GetError());
+        std::exit(1);
+    }
+
+    wnd = SDL_CreateWindowFrom(hWnd);
+    if (wnd == NULL)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window: %s", SDL_GetError());
+        std::exit(1);
+    }
+
+    renderer = SDL_CreateRenderer(wnd, -1, SDL_RENDERER_ACCELERATED);
+    if (renderer == NULL)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create renderer: %s", SDL_GetError());
+        std::exit(1);
+    }
+
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    if (texture == NULL)
+    {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
+        std::exit(1);
+    }
+
+    Init();
+}
+
+void TestPrimitives::Show()
+{
+    std::fill(zdepth.begin(), zdepth.end(), ZMIN);
+    std::fill(pixels.begin(), pixels.end(), 0);
+    Render();
+
+    SDL_UpdateTexture(texture, NULL, &pixels[0], width * 4);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+}
+
+void TestPrimitives::CleanUp()
+{
+    SDL_DestroyTexture(texture);
+    texture = NULL;
+
+    SDL_DestroyRenderer(renderer);
+    renderer = NULL;
+
+    SDL_DestroyWindow(wnd);
+    wnd = NULL;
+
+    SDL_Quit();
+}
+
+void TestPrimitives::Destroy()
+{
+    PostQuitMessage(0);
+}
 
 void TestPrimitives::Init()
 {
@@ -384,35 +376,6 @@ void TestPrimitives::Update()
 
 void TestPrimitives::Render()
 {
-/*
-    float centerX = width / 2.0;
-    float centerY = height / 2.0;
-
-    float radius = 80.0;
-    float dr = 20.0;
-
-    float z = 0.0;
-    float dz = 10.0;
-    float middlez = 35.0;
-
-    for (int i = 0; i < 7; ++i)
-    {
-        float angle = 0.0;
-
-        while (angle < 360.0)
-        {
-            float x = centerX + radius * std::cos(angle);
-            float y = centerY + radius * std::sin(angle);
-
-            DrawLine(centerX, centerY, middlez, x, y, z, rainbow[i]);
-
-            angle += 1.0;
-        }
-
-        radius += dr;
-        z += dz;
-    }
-*/
     DrawFilledTriangle(10, 50, 10, 400, 100, 10, 290, 380, 10, RED);
     DrawFilledTriangle(50, 350, 2, 130, 40, 20, 380, 200, 5, GREEN);
     DrawWireFrameTriangle(250, 250, 0, 70, 400, 0, 320, 400, 0, BLUE);
