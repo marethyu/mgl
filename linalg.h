@@ -19,7 +19,7 @@ public:
     Vector(std::initializer_list<T> l);
     template<typename ...Args> Vector(Args... args) : Vector({args...}) {}
     Vector(const Vector& v);
-    ~Vector() { delete[] data_; }
+    ~Vector() { delete[] a; }
 
     Vector& operator=(const Vector& v);
     Vector& operator+=(const Vector& v);
@@ -31,33 +31,19 @@ public:
     T& operator[](int index);
 
     Vector Unit() const;
-    Vector Cross(const Vector& v) const;
 
     T Dot(const Vector& v) const;
     T Magnitude() const;
 
-    // Find the component (or scalar projection) of v onto this vector
+    // Find the component (or scalar projection) of this vector onto v (ie. comp_v this)
     T Component(const Vector& v) const;
 
-    // Find the vector projection of v onto this vector
+    // Find the vector projection of this vector onto v (ie. proj_v this)
     Vector Project(const Vector& v) const;
-
-    // Rotate this 2D vector about x axis in counterclockwise direction
-    // Note that the angle must be in radians!
-    Vector Rotate2D(T angle) const;
-
-    Vector RotateX3D(T angle) const;
-    Vector RotateY3D(T angle) const;
-    Vector RotateZ3D(T angle) const;
-
-    // Rotate this 3D vector about arbitrary axis and angle
-    Vector Rotate3D(const Vector<T, 3>& axis, T angle) const;
-    // Same as Rotate3D. Note that q must be a unit quaternion.
-    Vector Rotate3D(const Quaternion<T>& q) const;
 
     size_t Dimensions() const { return N; }
 private:
-    T* data_;
+    T* a;
 
     void _init_data();
 };
@@ -76,7 +62,7 @@ Vector<T, N>::Vector(std::initializer_list<T> l)
 
     for (auto elem : l)
     {
-        data_[i++] = elem;
+        a[i++] = elem;
     }
 }
 
@@ -92,7 +78,7 @@ Vector<T, N>& Vector<T, N>::operator=(const Vector<T, N>& v)
 {
     for (int i = 0; i < N; ++i)
     {
-        data_[i] = v[i];
+        a[i] = v[i];
     }
 
     return *this;
@@ -103,7 +89,7 @@ Vector<T, N>& Vector<T, N>::operator+=(const Vector<T, N>& v)
 {
     for (int i = 0; i < N; ++i)
     {
-        data_[i] += v[i];
+        a[i] += v[i];
     }
 
     return *this;
@@ -114,7 +100,7 @@ Vector<T, N>& Vector<T, N>::operator-=(const Vector<T, N>& v)
 {
     for (int i = 0; i < N; ++i)
     {
-        data_[i] -= v[i];
+        a[i] -= v[i];
     }
 
     return *this;
@@ -125,7 +111,7 @@ Vector<T, N>& Vector<T, N>::operator*=(T s)
 {
     for (int i = 0; i < N; ++i)
     {
-        data_[i] *= s;
+        a[i] *= s;
     }
 
     return *this;
@@ -141,7 +127,7 @@ Vector<T, N>& Vector<T, N>::operator/=(T s)
 
     for (int i = 0; i < N; ++i)
     {
-        data_[i] /= s;
+        a[i] /= s;
     }
 
     return *this;
@@ -151,14 +137,14 @@ template<typename T, size_t N>
 T Vector<T, N>::operator[](int index) const
 {
     if (index < 0 || index >= N) throw std::out_of_range("index is out of bounds");
-    else return data_[index];
+    else return a[index];
 }
 
 template<typename T, size_t N>
 T& Vector<T, N>::operator[](int index)
 {
     if (index < 0 || index >= N) throw std::out_of_range("index is out of bounds");
-    else return data_[index];
+    else return a[index];
 }
 
 template<typename T, size_t N>
@@ -168,32 +154,13 @@ Vector<T, N> Vector<T, N>::Unit() const
 }
 
 template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::Cross(const Vector<T, N>& v) const
-{
-    // TODO calculate cross product for 7D vectors
-    // see https://math.stackexchange.com/q/720813
-    if (N != 3)
-    {
-        throw std::invalid_argument("Cross product is applicable to 3D vectors only");
-    }
-
-    Vector n;
-
-    n[0] = data_[1] * v[2] - data_[2] * v[1];
-    n[1] = data_[2] * v[0] - data_[0] * v[2];
-    n[2] = data_[0] * v[1] - data_[1] * v[0];
-
-    return n;
-}
-
-template<typename T, size_t N>
 T Vector<T, N>::Dot(const Vector<T, N>& v) const
 {
     T total = 0;
 
     for (int i = 0; i < N; ++i)
     {
-        total += data_[i] * v[i];
+        total += a[i] * v[i];
     }
 
     return total;
@@ -208,108 +175,23 @@ T Vector<T, N>::Magnitude() const
 template<typename T, size_t N>
 T Vector<T, N>::Component(const Vector<T, N>& v) const
 {
-    return Dot(v) / Magnitude();
+    return Dot(v) / v.Magnitude();
 }
 
 template<typename T, size_t N>
 Vector<T, N> Vector<T, N>::Project(const Vector<T, N>& v) const
 {
-    return Component(v) * Unit();
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::Rotate2D(T angle) const
-{
-    if (N != 2)
-    {
-        throw std::invalid_argument("Rotate2D is applicable to 2D vectors only");
-    }
-
-    Matrix<T, 2, 2> R = {{std::cos(angle), -std::sin(angle)},
-                         {std::sin(angle),  std::cos(angle)}};
-
-    return R * (*this);
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::RotateX3D(T angle) const
-{
-    if (N != 3)
-    {
-        throw std::invalid_argument("RotateX3D is applicable to 3D vectors only");
-    }
-
-    Matrix<T, 3, 3> RX = {{1,               0,                0},
-                          {0, std::cos(angle), -std::sin(angle)},
-                          {0, std::sin(angle),  std::cos(angle)}};
-
-    return RX * (*this);
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::RotateY3D(T angle) const
-{
-    if (N != 3)
-    {
-        throw std::invalid_argument("RotateY3D is applicable to 3D vectors only");
-    }
-
-    Matrix<T, 3, 3> RY = {{std::cos(angle),  0, std::sin(angle)},
-                          {0,                1,               0},
-                          {-std::sin(angle), 0, std::cos(angle)}};
-
-    return RY * (*this);
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::RotateZ3D(T angle) const
-{
-    if (N != 3)
-    {
-        throw std::invalid_argument("RotateZ3D is applicable to 3D vectors only");
-    }
-
-    Matrix<T, 3, 3> RZ = {{std::cos(angle), -std::sin(angle), 0},
-                          {std::sin(angle), std::cos(angle),  0},
-                          {0,                             0,  1}};
-
-    return RZ * (*this);
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::Rotate3D(const Vector<T, 3>& axis, T angle) const
-{
-    if (N != 3)
-    {
-        throw std::invalid_argument("Rotate3D is applicable to 3D vectors only");
-    }
-
-    return Rotate3D(Quaternion<T>(axis, angle));
-}
-
-template<typename T, size_t N>
-Vector<T, N> Vector<T, N>::Rotate3D(const Quaternion<T>& q) const
-{
-    if (N != 3)
-    {
-        throw std::invalid_argument("Rotate3D is applicable to 3D vectors only");
-    }
-
-    Quaternion<T> p(0, *this); // pure quaternion for this vector
-
-    p = q * p * q.Conjugate(); // conjugate and inverse are the same in this case
-
-    return p.VectorComponent();
+    return Component(v) * v.Unit();
 }
 
 template<typename T, size_t N>
 void Vector<T, N>::_init_data()
 {
-    data_ = new T[N];
+    a = new T[N];
 
     for (int i = 0; i < N; ++i)
     {
-        data_[i] = 0;
+        a[i] = 0;
     }
 }
 
@@ -337,11 +219,46 @@ std::ostream& operator<<(std::ostream& os, const Vector<T, N>& v)
     return os;
 }
 
+using vec2i = Vector<int, 2>;
+using vec3i = Vector<int, 3>;
+using vec4i = Vector<int, 4>;
+using vec2f = Vector<float, 2>;
+using vec3f = Vector<float, 3>;
+using vec4f = Vector<float, 4>;
+using vec2d = Vector<double, 2>;
+using vec3d = Vector<double, 3>;
+using vec4d = Vector<double, 4>;
+
+template<typename T> const Vector<T, 3> CrossProduct(const Vector<T, 3>& a, const Vector<T, 3>& b);
+template<typename T> const Vector<T, 3> Rotate3D(const Vector<T, 3>& v, const Quaternion<T>& q); // Rotate this vector about arbitrary axis and angle. Note that q must be a unit quaternion.
+
+template<typename T>
+const Vector<T, 3> CrossProduct(const Vector<T, 3>& a, const Vector<T, 3>& b)
+{
+    Vector<T, 3> c;
+
+    c[0] = a[1] * b[2] - a[2] * b[1];
+    c[1] = a[2] * b[0] - a[0] * b[2];
+    c[2] = a[0] * b[1] - a[1] * b[0];
+
+    return c;
+}
+
+template<typename T>
+const Vector<T, 3> Rotate3D(const Vector<T, 3>& v, const Quaternion<T>& q)
+{
+    Quaternion<T> p(0, v); // pure quaternion for v
+
+    p = q * p * q.Conjugate(); // conjugate and inverse are the same in this case
+
+    return p.VectorComponent();
+}
+
 template<typename T, size_t M, size_t N>
 class Matrix {
 public:
-    Matrix(bool identity = false) { _init_vecs(identity); }
-    Matrix(const Vector<T, N> vecs);
+    Matrix() { vecs_ = new Vector<T, N>[M]; }
+    Matrix(const Vector<T, N> vecs[]);
     Matrix(std::initializer_list<std::initializer_list<T>> l);
     Matrix(const Matrix& m);
     ~Matrix() { delete[] vecs_; }
@@ -360,20 +277,16 @@ public:
 
     Matrix<T, N, M> Transpose() const;
 
-    // TODO impl inverse, gaussian elimination, solve systems of eqns, determinant, etc...
-
     size_t Rows() const { return M; }
     size_t Columns() const { return N; }
-private:
+protected:
     Vector<T, N>* vecs_;
-
-    void _init_vecs(bool identity);
 };
 
 template<typename T, size_t M, size_t N>
-Matrix<T, M, N>::Matrix(const Vector<T, N> vecs)
+Matrix<T, M, N>::Matrix(const Vector<T, N> vecs[])
 {
-    _init_vecs(false);
+    vecs_ = new Vector<T, N>[M];
 
     for (int i = 0; i < M; ++i)
     {
@@ -394,7 +307,7 @@ Matrix<T, M, N>::Matrix(std::initializer_list<std::initializer_list<T>> l)
         throw std::out_of_range("column count does not match");
     }
 
-    _init_vecs(false);
+    vecs_ = new Vector<T, N>[M];
 
     int i = 0, j = 0;
 
@@ -413,7 +326,7 @@ Matrix<T, M, N>::Matrix(std::initializer_list<std::initializer_list<T>> l)
 template<typename T, size_t M, size_t N>
 Matrix<T, M, N>::Matrix(const Matrix<T, M, N>& m)
 {
-    _init_vecs(false);
+    vecs_ = new Vector<T, N>[M];
     *this = m;
 }
 
@@ -520,7 +433,8 @@ Vector<T, M> Matrix<T, M, N>::operator*(const Vector<T, N>& b) const
     return c;
 }
 
-template<typename T, size_t M, size_t N> template <size_t P>
+template<typename T, size_t M, size_t N>
+template <size_t P>
 Matrix<T, M, P> Matrix<T, M, N>::operator*(const Matrix<T, N, P>& b) const
 {
     Matrix<T, M, P> c;
@@ -555,23 +469,6 @@ Matrix<T, N, M> Matrix<T, M, N>::Transpose() const
     return t;
 }
 
-template<typename T, size_t M, size_t N>
-void Matrix<T, M, N>::_init_vecs(bool identity)
-{
-    vecs_ = new Vector<T, N>[M];
-
-    for (int i = 0; i < M; ++i)
-    {
-        for (int j = 0; j < N; ++j)
-        {
-            if (identity && i == j)
-            {
-                vecs_[i][j] = 1;
-            }
-        }
-    }
-}
-
 template<typename T, size_t M, size_t N> Matrix<T, M, N> operator+(const Matrix<T, M, N>& m) { return m; }
 template<typename T, size_t M, size_t N> Matrix<T, M, N> operator-(const Matrix<T, M, N>& m) { return Matrix<T, M, N>() - m; }
 
@@ -594,6 +491,330 @@ std::ostream& operator<<(std::ostream& os, const Matrix<T, M, N>& m)
     }
 
     return os;
+}
+
+template<typename T, size_t N>
+using SquareMatrix = Matrix<T, N, N>;
+
+using mat2i = SquareMatrix<int, 2>;
+using mat2f = SquareMatrix<float, 2>;
+using mat2d = SquareMatrix<double, 2>;
+using mat3i = SquareMatrix<int, 3>;
+using mat3f = SquareMatrix<float, 3>;
+using mat3d = SquareMatrix<double, 3>;
+using mat4i = SquareMatrix<int, 4>;
+using mat4f = SquareMatrix<float, 4>;
+using mat4d = SquareMatrix<double, 4>;
+
+template<typename T, size_t N> const SquareMatrix<T, N> CreateIdentity();
+
+template<typename T> const SquareMatrix<T, 2> CreateScalingMatrix2(T scaleX, T scaleY);
+template<typename T> const SquareMatrix<T, 2> CreateRotationMatrix2(T angle);
+
+template<typename T> const SquareMatrix<T, 3> CreateScalingMatrix3(T scaleX, T scaleY, T scaleZ);
+
+template<typename T> const SquareMatrix<T, 3> CreateRotationXMatrix3(T angle);
+template<typename T> const SquareMatrix<T, 3> CreateRotationYMatrix3(T angle);
+template<typename T> const SquareMatrix<T, 3> CreateRotationZMatrix3(T angle);
+template<typename T> const SquareMatrix<T, 3> CreateRotationMatrix3(T yaw, T pitch, T roll);
+template<typename T> const SquareMatrix<T, 3> CreateRotationMatrix3(const Quaternion<T>& q); // q is a unit quaternion
+
+template<typename T> const SquareMatrix<T, 4> CreateTranslationMatrix4(T dx, T dy, T dz);
+template<typename T> const SquareMatrix<T, 4> CreateScalingMatrix4(T scaleX, T scaleY, T scaleZ);
+
+template<typename T> const SquareMatrix<T, 4> CreateOrthographic4(T left, T right, T bottom, T top, T near, T far);
+template<typename T> const SquareMatrix<T, 4> CreateViewingFrustum4(T left, T right, T bottom, T top, T near, T far);
+template<typename T> const SquareMatrix<T, 4> CreatePerspective4(T fovy, T aspect, T near, T far);
+
+template<typename T> const SquareMatrix<T, 4> CreateRotationXMatrix4(T angle);
+template<typename T> const SquareMatrix<T, 4> CreateRotationYMatrix4(T angle);
+template<typename T> const SquareMatrix<T, 4> CreateRotationZMatrix4(T angle);
+template<typename T> const SquareMatrix<T, 4> CreateRotationMatrix4(T yaw, T pitch, T roll);
+template<typename T> const SquareMatrix<T, 4> CreateRotationMatrix4(const Quaternion<T>& q); // q is a unit quaternion
+
+// TODO impl inverse, gaussian elimination, solve systems of eqns, determinant, find eigenvalues and eigenvectors etc... Nice reference: https://ubcmath.github.io/MATH307/index.html
+
+template<typename T, size_t N>
+const SquareMatrix<T, N> CreateIdentity()
+{
+    SquareMatrix<T, N> id;
+
+    for (int i = 0; i < N; ++i)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            if (i == j)
+            {
+                id[i][j] = 1;
+            }
+        }
+    }
+
+    return id;
+}
+
+template<typename T>
+const SquareMatrix<T, 2> CreateScalingMatrix2(T scaleX, T scaleY)
+{
+    SquareMatrix<T, 2> S;
+
+    S[0][0] = scaleX;
+    S[1][1] = scaleY;
+
+    return S;
+}
+
+template<typename T>
+const SquareMatrix<T, 2> CreateRotationMatrix2(T angle)
+{
+    SquareMatrix<T, 2> R = {{std::cos(angle), -std::sin(angle)},
+                            {std::sin(angle),  std::cos(angle)}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateScalingMatrix3(T scaleX, T scaleY, T scaleZ)
+{
+    SquareMatrix<T, 3> S;
+
+    S[0][0] = scaleX;
+    S[1][1] = scaleY;
+    S[2][2] = scaleZ;
+
+    return S;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateRotationXMatrix3(T angle)
+{
+    SquareMatrix<T, 3> R = {{1,               0,                0},
+                            {0, std::cos(angle), -std::sin(angle)},
+                            {0, std::sin(angle),  std::cos(angle)}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateRotationYMatrix3(T angle)
+{
+    SquareMatrix<T, 3> R = {{std::cos(angle),  0, std::sin(angle)},
+                            {0,                1,               0},
+                            {-std::sin(angle), 0, std::cos(angle)}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateRotationZMatrix3(T angle)
+{
+    SquareMatrix<T, 3> R = {{std::cos(angle), -std::sin(angle),  0},
+                            {std::sin(angle),  std::cos(angle),  0},
+                            {0,                              0,  1}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateRotationMatrix3(T yaw, T pitch, T roll)
+{
+    SquareMatrix<T, 3> R;
+
+    R[0][0] = std::cos(yaw) * std::cos(pitch);
+    R[0][1] = std::cos(yaw) * std::sin(pitch) * std::sin(roll) - std::sin(yaw) * std::cos(roll);
+    R[0][2] = std::cos(yaw) * std::sin(pitch) * std::cos(roll) + std::sin(yaw) * std::sin(roll);
+
+    R[1][0] = std::sin(yaw) * std::cos(pitch);
+    R[1][1] = std::sin(yaw) * std::sin(pitch) * std::sin(roll) + std::cos(yaw) * std::cos(roll);
+    R[1][2] = std::sin(yaw) * std::sin(pitch) * std::cos(roll) - std::cos(yaw) * std::sin(roll);
+
+    R[2][0] = -std::sin(pitch);
+    R[2][1] = std::cos(pitch) * std::sin(roll);
+    R[2][2] = std::cos(pitch) * std::cos(roll);
+
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 3> CreateRotationMatrix3(const Quaternion<T>& q)
+{
+    SquareMatrix<T, 3> R;
+
+    R[0][0] = 1 - 2 * q[2] * q[2] - 2 * q[3] * q[3];
+    R[0][1] = 2 * q[1] * q[2] - 2 * q[0] * q[3];
+    R[0][2] = 2 * q[1] * q[3] + 2 * q[0] * q[2];
+
+    R[1][0] = 2 * q[1] * q[2] + 2 * q[0] * q[3];
+    R[1][1] = 1 - 2 * q[1] * q[1] - 2 * q[3] * q[3];
+    R[1][2] = 2 * q[2] * q[3] - 2 * q[0] * q[1];
+
+    R[2][0] = 2 * q[1] * q[3] - 2 * q[0] * q[2];
+    R[2][1] = 2 * q[2] * q[3] + 2 * q[0] * q[1];
+    R[2][2] = 1 - 2 * q[1] * q[1] - 2 * q[2] * q[2];
+
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateTranslationMatrix4(T dx, T dy, T dz)
+{
+    SquareMatrix<T, 4> Tr = CreateIdentity<T, 4>();
+
+    Tr[0][3] = dx;
+    Tr[1][3] = dy;
+    Tr[2][3] = dz;
+
+    return Tr;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateScalingMatrix4(T scaleX, T scaleY, T scaleZ)
+{
+    SquareMatrix<T, 4> S;
+
+    S[0][0] = scaleX;
+    S[1][1] = scaleY;
+    S[2][2] = scaleZ;
+    S[3][3] = 1;
+
+    return S;
+}
+
+// Check out: http://learnwebgl.brown37.net/08_projections/projections_ortho.html
+template<typename T>
+const SquareMatrix<T, 4> CreateOrthographic4(T left, T right, T bottom, T top, T near, T far)
+{
+    if (left == right || bottom == top || near == far)
+    {
+        throw std::invalid_argument("Possible division by zero");
+        return CreateIdentity<T, 4>();
+    }
+
+    SquareMatrix<T, 4> P;
+
+    P[0][0] = 2 / (right - left);
+    P[1][1] = 2 / (top - bottom);
+    P[2][2] = -2 / (far - near);
+    P[3][3] = 1;
+
+    P[0][3] = -(right + left) / (right - left);
+    P[1][3] = -(top + bottom) / (top - bottom);
+    P[2][3] = -(far + near) / (far - near);
+
+    return P;
+}
+
+// Check out: http://learnwebgl.brown37.net/08_projections/projections_perspective.html
+template<typename T>
+const SquareMatrix<T, 4> CreateViewingFrustum4(T left, T right, T bottom, T top, T near, T far)
+{
+    if (left == right || bottom == top || near == far)
+    {
+        throw std::invalid_argument("Possible division by zero");
+        return CreateIdentity<T, 4>();
+    }
+
+    SquareMatrix<T, 4> P;
+
+    P[0][0] = 2 * near / (right - left);
+    P[1][1] = 2 * near / (top - bottom);
+    P[2][2] = -(far + near) / (far - near);
+    P[3][2] = -1;
+
+    P[0][3] = -near * (right + left) / (right - left);
+    P[1][3] = -near * (top + bottom) / (top - bottom);
+    P[2][3] = 2 * far * near / (near - far);
+
+    return P;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreatePerspective4(T fovy, T aspect, T near, T far)
+{
+    if (fovy <= 0 || fovy >= 180 || aspect <= 0 || near >= far || near <= 0)
+    {
+        throw std::invalid_argument("Bad arguments");
+        return CreateIdentity<T, 4>();
+    }
+
+    T half_fovy = fovy / 2;
+
+    T top = near * std::tan(half_fovy);
+    T bottom = -top;
+    T right = top * aspect;
+    T left = -right;
+
+    return CreateViewingFrustum(left, right, bottom, top, near, far);
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateRotationXMatrix4(T angle)
+{
+    SquareMatrix<T, 4> R = {{1,               0,                0, 0},
+                            {0, std::cos(angle), -std::sin(angle), 0},
+                            {0, std::sin(angle),  std::cos(angle), 0},
+                            {0,               0,                0, 1}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateRotationYMatrix4(T angle)
+{
+    SquareMatrix<T, 4> R = {{std::cos(angle),  0, std::sin(angle), 0},
+                            {0,                1,               0, 0},
+                            {-std::sin(angle), 0, std::cos(angle), 0},
+                            {0,                0,               0, 1}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateRotationZMatrix4(T angle)
+{
+    SquareMatrix<T, 4> R = {{std::cos(angle), -std::sin(angle),  0, 0},
+                            {std::sin(angle),  std::cos(angle),  0, 0},
+                            {0,                              0,  1, 0},
+                            {0,                              0,  0, 1}};
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateRotationMatrix4(T yaw, T pitch, T roll)
+{
+    SquareMatrix<T, 4> R;
+
+    R[0][0] = std::cos(yaw) * std::cos(pitch);
+    R[0][1] = std::cos(yaw) * std::sin(pitch) * std::sin(roll) - std::sin(yaw) * std::cos(roll);
+    R[0][2] = std::cos(yaw) * std::sin(pitch) * std::cos(roll) + std::sin(yaw) * std::sin(roll);
+
+    R[1][0] = std::sin(yaw) * std::cos(pitch);
+    R[1][1] = std::sin(yaw) * std::sin(pitch) * std::sin(roll) + std::cos(yaw) * std::cos(roll);
+    R[1][2] = std::sin(yaw) * std::sin(pitch) * std::cos(roll) - std::cos(yaw) * std::sin(roll);
+
+    R[2][0] = -std::sin(pitch);
+    R[2][1] = std::cos(pitch) * std::sin(roll);
+    R[2][2] = std::cos(pitch) * std::cos(roll);
+
+    R[3][3] = 1;
+
+    return R;
+}
+
+template<typename T>
+const SquareMatrix<T, 4> CreateRotationMatrix4(const Quaternion<T>& q)
+{
+    SquareMatrix<T, 4> R;
+
+    R[0][0] = 1 - 2 * q[2] * q[2] - 2 * q[3] * q[3];
+    R[0][1] = 2 * q[1] * q[2] - 2 * q[0] * q[3];
+    R[0][2] = 2 * q[1] * q[3] + 2 * q[0] * q[2];
+
+    R[1][0] = 2 * q[1] * q[2] + 2 * q[0] * q[3];
+    R[1][1] = 1 - 2 * q[1] * q[1] - 2 * q[3] * q[3];
+    R[1][2] = 2 * q[2] * q[3] - 2 * q[0] * q[1];
+
+    R[2][0] = 2 * q[1] * q[3] - 2 * q[0] * q[2];
+    R[2][1] = 2 * q[2] * q[3] + 2 * q[0] * q[1];
+    R[2][2] = 1 - 2 * q[1] * q[1] - 2 * q[2] * q[2];
+
+    R[3][3] = 1;
+
+    return R;
 }
 
 template<typename T>
@@ -620,8 +841,6 @@ public:
     Quaternion Conjugate() const;
     Quaternion Inverse() const;
     Quaternion Unit() const;
-
-    // TODO impl convert to matrix?
 
     T InnerProduct(const Quaternion& q) const;
     T Magnitude() const;
@@ -676,7 +895,7 @@ template<typename T>
 Quaternion<T>& Quaternion<T>::operator*=(const Quaternion<T>& q)
 {
     T s = s_ * q.s_ - v_.Dot(q.v_);
-    Vector<T, 3> v = s_ * q.v_ + q.s_ * v_ + v_.Cross(q.v_);
+    Vector<T, 3> v = s_ * q.v_ + q.s_ * v_ + CrossProduct(v_, q.v_);
 
     s_ = s;
     v_ = v;

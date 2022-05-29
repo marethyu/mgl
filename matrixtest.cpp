@@ -4,7 +4,7 @@
 
 int main()
 {
-    Matrix<int, 3, 3> A = {{1, 2, 1}, {0, 1, 0}, {2, 3, 4}};
+    mat3i A = {{1, 2, 1}, {0, 1, 0}, {2, 3, 4}};
     Matrix<int, 3, 2> B = {{2, 5}, {6, 7}, {1, 8}};
     Matrix<int, 3, 2> C = A * B;
 
@@ -18,17 +18,13 @@ int main()
     std::cout << C << std::endl;
 
     Matrix<int, 3, 4> D = {{1, 2, 1, 1}, {0, 1, 0, 1}, {2, 3, 4, 1}};
-    Vector<int, 4> v = {2, 6, 1, 1};
+    vec4i v = {2, 6, 1, 1};
 
-    Vector<int, 3> result = D * v;
+    vec3i result = D * v;
 
     std::cout << result << std::endl;
 
-    Matrix<double, 3, 3> id(true);
-
-    std::cout << id << std::endl;
-
-    id /= 0.0;
+    mat3d id = CreateIdentity<double, 3>();
 
     std::cout << id << std::endl;
 

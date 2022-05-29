@@ -5,6 +5,7 @@ TODO:
 - test real models from wavefront .obj file
 - should i change trackball radius when zooming?
 - coloured faces
+- double check arcball implementation?
 */
 
 #include <algorithm>
@@ -13,11 +14,6 @@ TODO:
 #include <SDL2/SDL.h>
 
 #include "linalg.h"
-
-using vec2 = Vector<double, 2>;
-using vec3 = Vector<double, 3>;
-using mat2x2 = Matrix<double, 2, 2>;
-using mat2x3 = Matrix<double, 2, 3>;
 
 /*
 Coordinate system:
@@ -48,7 +44,7 @@ struct WireframePolygon
     int vertexes;
     int edges;
 
-    vec3 vertex[MAXV];
+    vec3d vertex[MAXV];
     int edge[MAXE][2];
 };
 
@@ -69,12 +65,12 @@ const WireframePolygon TriangularPrism = {
     6,
     9,
     {
-        vec3(-0.5, -0.5, -0.1), // 1
-        vec3(0.0, 0.8, -0.1),   // 2
-        vec3(0.5, -0.5, -0.1),  // 3
-        vec3(-0.5, -0.5, 0.1),  // 4
-        vec3(0.0, 0.8, 0.1),    // 5
-        vec3(0.5, -0.5, 0.1),   // 6
+        vec3d(-0.5, -0.5, -0.1), // 1
+        vec3d(0.0, 0.8, -0.1),   // 2
+        vec3d(0.5, -0.5, -0.1),  // 3
+        vec3d(-0.5, -0.5, 0.1),  // 4
+        vec3d(0.0, 0.8, 0.1),    // 5
+        vec3d(0.5, -0.5, 0.1),   // 6
     },
     {
         {0, 1},
@@ -105,14 +101,14 @@ const WireframePolygon Cube = {
     8,
     12,
     {
-        vec3(-0.5, -0.5, -0.5), // 1
-        vec3(-0.5, -0.5, 0.5),  // 2
-        vec3(0.5, -0.5, 0.5),   // 3
-        vec3(0.5, -0.5, -0.5),  // 4
-        vec3(0.5, 0.5, -0.5),   // 5
-        vec3(-0.5, 0.5, -0.5),  // 6
-        vec3(-0.5, 0.5, 0.5),   // 7
-        vec3(0.5, 0.5, 0.5)     // 8
+        vec3d(-0.5, -0.5, -0.5), // 1
+        vec3d(-0.5, -0.5, 0.5),  // 2
+        vec3d(0.5, -0.5, 0.5),   // 3
+        vec3d(0.5, -0.5, -0.5),  // 4
+        vec3d(0.5, 0.5, -0.5),   // 5
+        vec3d(-0.5, 0.5, -0.5),  // 6
+        vec3d(-0.5, 0.5, 0.5),   // 7
+        vec3d(0.5, 0.5, 0.5)     // 8
     },
     {
         {0, 1},
@@ -130,12 +126,12 @@ const WireframePolygon Cube = {
     }
 };
 
-const mat2x3 project2D = {{200, 0,     0},
-                          {0,   200,   0}};
+const Matrix<double, 2, 3> project2D = {{200, 0,     0},
+                                        {0,   200,   0}};
 
-const vec3 xaxis = {1, 0, 0};
-const vec3 yaxis = {0, 1, 0};
-const vec3 zaxis = {0, 0, 1};
+const vec3d xaxis = {1, 0, 0};
+const vec3d yaxis = {0, 1, 0};
+const vec3d zaxis = {0, 0, 1};
 
 /* map s from [a1...a2] to [b1...b2] */
 inline double map(double s, double a1, double a2, double b1, double b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
@@ -143,7 +139,7 @@ inline double map(double s, double a1, double a2, double b1, double b2) { return
 inline int mapX(double cx) { return map(cx, -centerx, centery, 0, canvas_width - 1); }
 inline int mapY(double cy) { return map(cy, centery, -centery, 0, canvas_height - 1); }
 
-vec3 project(int mx, int my)
+vec3d project(int mx, int my)
 {
     const double r = 1.0;
 
@@ -160,7 +156,7 @@ vec3 project(int mx, int my)
         z = (r * r / 2.0) / std::sqrt(x * x + y * y);
     }
 
-    return vec3(x, y, z);
+    return vec3d(x, y, z);
 }
 
 int main (int argc, char** argv)
@@ -184,7 +180,7 @@ int main (int argc, char** argv)
     const int vertexes = Cube.vertexes;
     const int edges = Cube.edges;
 
-    vec3 vertex[vertexes];
+    vec3d vertex[vertexes];
     int edge[edges][2];
 
     std::copy(Cube.vertex, Cube.vertex + vertexes, vertex);
@@ -193,7 +189,7 @@ int main (int argc, char** argv)
     const int vertexes = TriangularPrism.vertexes;
     const int edges = TriangularPrism.edges;
 
-    vec3 vertex[vertexes];
+    vec3d vertex[vertexes];
     int edge[edges][2];
 
     std::copy(TriangularPrism.vertex, TriangularPrism.vertex + vertexes, vertex);
@@ -204,7 +200,7 @@ int main (int argc, char** argv)
 
     bool mousepressed = false;
 
-    vec3 p, q, n;
+    vec3d p, q, n;
     double theta;
 
     Quaternion<double> currentQ(true); // unit quaternion
@@ -246,7 +242,7 @@ int main (int argc, char** argv)
                 {
                     q = project(event.motion.x, event.motion.y);
 
-                    n = p.Cross(q);
+                    n = CrossProduct(p, q);
                     theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
                     currentQ = Quaternion<double>(n, theta);
@@ -283,15 +279,12 @@ int main (int argc, char** argv)
         Quaternion<double> rotatey(yaxis, angle);
         Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
 
-        mat2x2 zoom = mat2x2(true) * zoomFactor;
+        mat2d zoom = CreateIdentity<double, 2>() * zoomFactor;
 
         for (int i = 0; i < edges; ++i)
         {
-            vec3 v1 = vertex[edge[i][0]];
-            vec3 v2 = vertex[edge[i][1]];
-
-            vec2 p1 = zoom * project2D * v1.Rotate3D(rotation);
-            vec2 p2 = zoom * project2D * v2.Rotate3D(rotation);
+            vec2d p1 = zoom * project2D * Rotate3D(vertex[edge[i][0]], rotation);
+            vec2d p2 = zoom * project2D * Rotate3D(vertex[edge[i][1]], rotation);
 
             SDL_RenderDrawLine(renderer, mapX(p1[0]), mapY(p1[1]), mapX(p2[0]), mapY(p2[1]));
         }
