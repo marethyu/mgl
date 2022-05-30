@@ -281,15 +281,15 @@ int main (int argc, char** argv)
         Quaternion<double> rotatey(yaxis, angle);
         Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
 
-        mat3d rot = CreateRotationMatrix3<double>(rotation);//
+        mat3d rot = CreateRotationMatrix3<double>(rotation);
         mat2d zoom = CreateIdentity<double, 2>() * zoomFactor;
+
+        Matrix<double, 2, 3> transform = zoom * project2D * rot;
 
         for (int i = 0; i < edges; ++i)
         {
-            //vec2d p1 = zoom * project2D * Rotate3D(vertex[edge[i][0]], rotation);
-            //vec2d p2 = zoom * project2D * Rotate3D(vertex[edge[i][1]], rotation);
-            vec2d p1 = zoom * project2D * rot * vertex[edge[i][0]];
-            vec2d p2 = zoom * project2D * rot * vertex[edge[i][1]];
+            vec2d p1 = transform * vertex[edge[i][0]];
+            vec2d p2 = transform * vertex[edge[i][1]];
 
             SDL_RenderDrawLine(renderer, mapX(p1[0]), mapY(p1[1]), mapX(p2[0]), mapY(p2[1]));
         }
