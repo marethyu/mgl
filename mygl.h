@@ -67,7 +67,7 @@ namespace mygl
     const Colour INDIGO(75, 0, 130, 255);
     const Colour VIOLET(148, 0, 211, 255);
 
-    const float ZMAX = std::numeric_limits<float>::max();
+    const float ZMIN = std::numeric_limits<float>::lowest();
 
     // Platform indepentent base class for programs that use 3D graphics
     class RendererBase3D
@@ -247,9 +247,9 @@ namespace mygl
                 }
 
                 int offset = x * width + y;
-                float depth = z; // TODO 1/z
+                float depth = 1.0 / z;
 
-                if (zdepth[offset] > depth)
+                if (zdepth[offset] < depth)
                 {
                     zdepth[offset] = depth;
                     pixels[offset] = colour.argb;
@@ -275,9 +275,9 @@ namespace mygl
                 }
 
                 int offset = y * width + x;
-                float depth = z; // TODO 1/z
+                float depth = 1.0 / z; 
 
-                if (zdepth[offset] > depth)
+                if (zdepth[offset] < depth)
                 {
                     zdepth[offset] = depth;
                     pixels[offset] = colour.argb;
@@ -297,7 +297,7 @@ namespace mygl
 
     void RendererBase3D::ClearScreen()
     {
-        std::fill(zdepth.begin(), zdepth.end(), ZMAX);
+        std::fill(zdepth.begin(), zdepth.end(), ZMIN);
         std::fill(pixels.begin(), pixels.end(), 0);
     }
 

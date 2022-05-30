@@ -1,4 +1,10 @@
 /* g++ poggers.cpp -o poggers -std=c++14 -lSDL2 */
+/*
+TODO
+- lighting - back face culling
+- shaders
+- camera
+*/
 
 #include <SDL2/SDL.h>
 
@@ -192,8 +198,8 @@ void Poggers::Destroy()
 void Poggers::Init()
 {
     angle = 0.0;
-    currentQ[0] = 1.0;
-    lastQ = Quaternion<double>(zaxis, M_PI / 4.0); // the polygon is initially rotated 45 degree counterclockwise about z-axis
+    currentQ = Quaternion<double>(true);
+    lastQ = Quaternion<double>(/*zaxis, M_PI / 4.0*/true); // the polygon is initially rotated 45 degree counterclockwise about z-axis
 }
 
 void Poggers::Update()
@@ -203,8 +209,8 @@ void Poggers::Update()
 
 void Poggers::Render()
 {
-    Quaternion<double> rotatey(yaxis, angle);
-    Quaternion<double> rotation = currentQ * lastQ * rotatey; // rotations can be composed by simply multiplying quaternions!
+    //Quaternion<double> rotatey(yaxis, angle);
+    Quaternion<double> rotation = currentQ * lastQ /* rotatey*/; // rotations can be composed by simply multiplying quaternions!
 
     mat4d rot = CreateRotationMatrix4<double>(rotation);
     mat4d trans = CreateTranslationMatrix4<double>(0.0, 0.0, -120.0);
@@ -214,8 +220,8 @@ void Poggers::Render()
     mat4d vertexTransf = proj * trans * rot;
 
     // for viewport transform
-    mat4d vpScale = CreateScalingMatrix4<double>(width / 2.0, -height / 2.0, 1.0);
-    mat4d vpTranslate = CreateTranslationMatrix4<double>(width / 2.0, height / 2.0, 0.0);
+    mat4d vpScale = CreateScalingMatrix4<double>(width / 2.0, -height / 2.0, width / 2); // the minus sign is used to flip y axis; assume that the size of z is width
+    mat4d vpTranslate = CreateTranslationMatrix4<double>(width / 2.0, height / 2.0, width / 2 + 0.5); // +0.5 to make sure that z > 0
 
     mat4d vpTransf = vpTranslate * vpScale;
 
