@@ -29,9 +29,9 @@ public:
 private:
     HWND hwnd;
 
-    SDL_Window *wnd;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
+    SDL_Window* wnd;
+    SDL_Renderer* renderer;
+    SDL_Texture* texture;
 
     float radius;
     float angle, da;
