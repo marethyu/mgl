@@ -12,8 +12,8 @@
 
 using namespace mygl;
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 600;
+const int SCREEN_HEIGHT = 600;
 const int SCREEN_SCALE_FACTOR = 1;
 
 /*
@@ -208,13 +208,13 @@ void Poggers::Render()
 
     mat4d rot = CreateRotationMatrix4<double>(rotation);
     mat4d trans = CreateTranslationMatrix4<double>(0.0, 0.0, -120.0);
-    //mat4d proj = CreateOrthographic4<double>(-120.0, 120.0, -120.0, 120.0, 0.0, 200.0);
-    mat4d proj = CreateViewingFrustum4<double>(-0.2, 0.2, -0.2, 0.2, 0.1, 140.0);
+    mat4d proj = CreateOrthographic4<double>(-120.0, 120.0, -120.0, 120.0, 0.0, 200.0);
+    //mat4d proj = CreateViewingFrustum4<double>(-0.2, 0.2, -0.2, 0.2, 0.1, 140.0);
 
     mat4d vertexTransf = proj * trans * rot;
 
     // for viewport transform
-    mat4d vpScale = CreateScalingMatrix4<double>(width / 2.0, height / 2.0, 1.0);
+    mat4d vpScale = CreateScalingMatrix4<double>(width / 2.0, -height / 2.0, 1.0);
     mat4d vpTranslate = CreateTranslationMatrix4<double>(width / 2.0, height / 2.0, 0.0);
 
     mat4d vpTransf = vpTranslate * vpScale;
@@ -237,10 +237,6 @@ void Poggers::Render()
         v1 = vpTransf * v1;
         v2 = vpTransf * v2;
         v3 = vpTransf * v3;
-
-        v1[1] = height - v1[1];
-        v2[1] = height - v2[1];
-        v3[1] = height - v3[1];
 
         if (t.filled)
         {
