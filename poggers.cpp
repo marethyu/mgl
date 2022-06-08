@@ -4,6 +4,8 @@ TODO
 - lighting - back face culling
 - shaders
 - camera
+- amp.h to exploit gpu
+- unproject https://dondi.lmu.build/share/cg/unproject-explained.pdf
 */
 
 #include <SDL2/SDL.h>
@@ -39,14 +41,14 @@ const Model cube = {
     8,
     12,
     {
-        vec4d(-50.0, -50.0, -50.0, 1.0), // 1
-        vec4d(-50.0, -50.0, 50.0, 1.0),  // 2
-        vec4d(50.0, -50.0, 50.0, 1.0),   // 3
-        vec4d(50.0, -50.0, -50.0, 1.0),  // 4
-        vec4d(50.0, 50.0, -50.0, 1.0),   // 5
-        vec4d(-50.0, 50.0, -50.0, 1.0),  // 6
-        vec4d(-50.0, 50.0, 50.0, 1.0),   // 7
-        vec4d(50.0, 50.0, 50.0, 1.0),    // 8
+        vec4f(-50.0f, -50.0f, -50.0f, 1.0f), // 1
+        vec4f(-50.0f, -50.0f, 50.0f, 1.0f),  // 2
+        vec4f(50.0f, -50.0f, 50.0f, 1.0f),   // 3
+        vec4f(50.0f, -50.0f, -50.0f, 1.0f),  // 4
+        vec4f(50.0f, 50.0f, -50.0f, 1.0f),   // 5
+        vec4f(-50.0f, 50.0f, -50.0f, 1.0f),  // 6
+        vec4f(-50.0f, 50.0f, 50.0f, 1.0f),   // 7
+        vec4f(50.0f, 50.0f, 50.0f, 1.0f),    // 8
     },
     {
         // Face 1-2-6-7
@@ -75,12 +77,12 @@ const Model cube = {
     }
 };
 
-const vec3d xaxis = {1, 0, 0};
-const vec3d yaxis = {0, 1, 0};
-const vec3d zaxis = {0, 0, 1};
+const vec3f xaxis = {1, 0, 0};
+const vec3f yaxis = {0, 1, 0};
+const vec3f zaxis = {0, 0, 1};
 
 /* map s from [a1...a2] to [b1...b2] */
-inline double map(double s, double a1, double a2, double b1, double b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
+inline float map(float s, float a1, float a2, float b1, float b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
 
 class Poggers : public RendererBase3D
 {
@@ -107,15 +109,16 @@ private:
     SDL_Renderer* renderer;
     SDL_Texture* texture;
 
-    double angle; // for continuous counterclockwise rotation about y-axis
-    vec3d p, q, n;
-    double theta;
-    Quaternion<double> currentQ;
-    Quaternion<double> lastQ;
+    float angle; // for continuous counterclockwise rotation about y-axis
+    const float dAngle = 0.02f;
 
-    const double dAngle = 0.02;
+    vec3f p, q, n;
+    Quaternion<float> currentQ, lastQ;
+    Quaternion<float> rotatey;
+    mat4f vertexTransf;
+    mat4f trans_proj, vpTransf;
 
-    vec3d Project(int mx, int my);
+    vec3f Project(int mx, int my);
 };
 
 Poggers::Poggers(int width, int height)
@@ -197,43 +200,46 @@ void Poggers::Destroy()
 
 void Poggers::Init()
 {
-    angle = 0.0;
-    currentQ = Quaternion<double>(true);
-    lastQ = Quaternion<double>(/*zaxis, M_PI / 4.0*/true); // the polygon is initially rotated 45 degree counterclockwise about z-axis
+    angle = 0.0f;
+    currentQ = Quaternion<float>(true);
+    lastQ = Quaternion<float>(zaxis, M_PI / 4.0f); // the cube is initially rotated 45 degree counterclockwise about z-axis
+
+    mat4f rot = CreateRotationMatrix4<float>(lastQ);
+    mat4f trans = CreateTranslationMatrix4<float>(0.0f, 0.0f, -120.0f);
+    mat4f proj = CreateOrthographic4<float>(-120.0f, 120.0f, -120.0f, 120.0f, 0.0f, 200.0f);
+    //mat4f proj = CreateViewingFrustum4<float>(-0.2f, 0.2f, -0.2f, 0.2f, 0.1f, 140.0f);
+
+    trans_proj = proj * trans;
+    vertexTransf = trans_proj * rot;
+
+    // for viewport transform
+    mat4f vpScale = CreateScalingMatrix4<float>(width / 2.0f, -height / 2.0f, width / 2.0f); // the minus sign is used to flip y axis; assume that the depth of z is width
+    mat4f vpTranslate = CreateTranslationMatrix4<float>(width / 2.0f, height / 2.0f, width / 2.0f + 0.5f); // +0.5 to make sure that z > 0
+
+    vpTransf = vpTranslate * vpScale;
 }
 
 void Poggers::Update()
 {
     angle += dAngle;
+
+    rotatey = Quaternion<float>(yaxis, angle);
+    mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ * rotatey);
+
+    vertexTransf = trans_proj * rot;
 }
 
 void Poggers::Render()
 {
-    //Quaternion<double> rotatey(yaxis, angle);
-    Quaternion<double> rotation = currentQ * lastQ /* rotatey*/; // rotations can be composed by simply multiplying quaternions!
-
-    mat4d rot = CreateRotationMatrix4<double>(rotation);
-    mat4d trans = CreateTranslationMatrix4<double>(0.0, 0.0, -120.0);
-    mat4d proj = CreateOrthographic4<double>(-120.0, 120.0, -120.0, 120.0, 0.0, 200.0);
-    //mat4d proj = CreateViewingFrustum4<double>(-0.2, 0.2, -0.2, 0.2, 0.1, 140.0);
-
-    mat4d vertexTransf = proj * trans * rot;
-
-    // for viewport transform
-    mat4d vpScale = CreateScalingMatrix4<double>(width / 2.0, -height / 2.0, width / 2); // the minus sign is used to flip y axis; assume that the size of z is width
-    mat4d vpTranslate = CreateTranslationMatrix4<double>(width / 2.0, height / 2.0, width / 2 + 0.5); // +0.5 to make sure that z > 0
-
-    mat4d vpTransf = vpTranslate * vpScale;
-
     int trigs = cube.ntrig;
 
     for (int i = 0; i < trigs; ++i)
     {
         Triangle t = cube.triangle[i];
 
-        vec4d v1 = vertexTransf * cube.vertex[t.vertex[0]];
-        vec4d v2 = vertexTransf * cube.vertex[t.vertex[1]];
-        vec4d v3 = vertexTransf * cube.vertex[t.vertex[2]];
+        vec4f v1 = vertexTransf * cube.vertex[t.vertex[0]];
+        vec4f v2 = vertexTransf * cube.vertex[t.vertex[1]];
+        vec4f v3 = vertexTransf * cube.vertex[t.vertex[2]];
 
         // perspective division
         v1 /= v1[3];
@@ -246,11 +252,11 @@ void Poggers::Render()
 
         if (t.filled)
         {
-            DrawFilledTriangle(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], v3[0], v3[1], v3[2], t.colour);
+            DrawFilledTriangleBarycentric(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
         }
         else
         {
-            DrawWireframeTriangle(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], v3[0], v3[1], v3[2], t.colour);
+            DrawWireframeTriangleDDA(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
         }
     }
 }
@@ -263,7 +269,7 @@ void Poggers::HandleMousePress(int mouseX, int mouseY)
 void Poggers::HandleMouseRelease(int mouseX, int mouseY)
 {
     lastQ = currentQ * lastQ;
-    currentQ = Quaternion<double>(true);
+    currentQ = Quaternion<float>(true);
 }
 
 void Poggers::HandleMouseMotion(int mouseX, int mouseY)
@@ -271,29 +277,32 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
     q = Project(mouseX, mouseY);
 
     n = CrossProduct(p, q);
-    theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
-    currentQ = Quaternion<double>(n, theta);
+    currentQ = Quaternion<float>(n, theta);
+
+    mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ * rotatey);
+    vertexTransf = trans_proj * rot;
 }
 
-vec3d Poggers::Project(int mx, int my)
+vec3f Poggers::Project(int mx, int my)
 {
-    const double r = 1.0;
+    const float r = 1.0f;
 
-    double x = map(mx, 0, width - 1, -1, 1);
-    double y = map(my, 0, height - 1, 1, -1);
-    double z;
+    float x = map(mx, 0, width - 1, -1, 1);
+    float y = map(my, 0, height - 1, 1, -1);
+    float z;
 
-    if (x * x + y * y <= r * r / 2.0)
+    if (x * x + y * y <= r * r / 2.0f)
     {
         z = std::sqrt(r - x * x - y * y);
     }
     else
     {
-        z = (r * r / 2.0) / std::sqrt(x * x + y * y);
+        z = (r * r / 2.0f) / std::sqrt(x * x + y * y);
     }
 
-    return vec3d(x, y, z);
+    return vec3f(x, y, z);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)

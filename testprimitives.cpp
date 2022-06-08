@@ -1,12 +1,13 @@
 /* g++ testprimitives.cpp -o testprimitives -lSDL2 */
 
-#include <Windows.h>
-
-#include <SDL2/SDL.h>
-
 #include "mygl.h"
 
+#include <Windows.h>
+#include <SDL2/SDL.h>
+
 #define ID_TIMER 1
+
+using namespace mygl;
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
@@ -128,16 +129,49 @@ void TestPrimitives::Update()
 
 void TestPrimitives::Render()
 {
-    DrawFilledTriangle(10, 50, 10, 400, 100, 10, 290, 380, 10, RED);
-    DrawFilledTriangle(50, 350, 2, 130, 40, 20, 380, 200, 5, GREEN);
-    DrawWireFrameTriangle(250, 250, 0, 70, 400, 0, 320, 400, 0, BLUE);
+    DrawFilledTriangleBarycentric(vec3f(10, 50, 10), vec3f(400, 100, 10), vec3f(290, 380, 10), RED);
+    DrawFilledTriangleBarycentric(vec3f(50, 350, 2), vec3f(130, 40, 20), vec3f(380, 200, 5), GREEN);
+/*
+    const Colour rainbow[7] = {
+        RED,
+        ORANGE,
+        YELLOW,
+        GREEN,
+        BLUE,
+        INDIGO,
+        VIOLET
+    };
 
-    float centerX = width / 2.0;
-    float centerY = height / 2.0;
-    float x = centerX + radius * std::cos(angle);
-    float y = centerY + radius * std::sin(angle);
+    float centerX = width / 2.0f;
+    float centerY = height / 2.0f;
 
-    DrawLine(centerX, centerY, 9, x, y, 9, INDIGO);
+    float radius = 80.0f;
+    float dr = 20.0f;
+
+    float z = 0.0f;
+    float dz = 10.0f;
+    float middlez = 35.0f;
+
+    for (int i = 0; i < 7; ++i)
+    {
+        float angle = 0.0f;
+
+        while (angle < 360.0f)
+        {
+            float x = centerX + radius * std::cos(angle);
+            float y = centerY + radius * std::sin(angle);
+
+            vec3f v1(centerX, centerY, middlez);
+            vec3f v2(x, y, z);
+
+            DrawLineDDA(v1, v2, rainbow[i]);
+
+            angle += 1.0f;
+        }
+
+        radius += dr;
+        z += dz;
+    }*/
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)

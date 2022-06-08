@@ -41,7 +41,7 @@ namespace mygl
      x - right
      y - up
      z - out the screen
-     
+
 */
     struct Triangle
     {
@@ -55,7 +55,7 @@ namespace mygl
         int nvert;
         int ntrig;
 
-        vec4d vertex[MAXV];
+        vec4f vertex[MAXV];
         Triangle triangle[MAXTRI];
     };
 
@@ -92,206 +92,106 @@ namespace mygl
            y goes down starting from top left corner
            z goes into page starting from top left corner
          */
-        void DrawFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour);
-        void DrawUpperFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour);
-        void DrawLowerFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour);
-        void DrawWireframeTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour);
-        void DrawLine(float x1, float y1, float z1, float x2, float y2, float z2, const Colour& colour);
+        void DrawFilledTriangleBarycentric(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour); // Warning: vertexes might need to be arranged in clockwise direction
+        void DrawWireframeTriangleDDA(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour);
+        void DrawLineDDA(const vec3f& v1, const vec3f& v2, const Colour& colour);
+        void PutPixel(int x, int y, float depth, uint32_t argb);
 
         void ClearScreen();
-        bool WithinBounds(float x, float y); // for clipping
-        bool Equalf(float f1, float f2);
-        void Swap(float& x1, float& y1, float& z1, float& x2, float& y2, float& z2);
     };
 
     RendererBase3D::RendererBase3D(int width, int height)
       : width(width), height(height), pixels(width * height), zdepth(width * height)
-    {
-        
-    }
+    {}
 
     RendererBase3D::~RendererBase3D()
     {}
 
-    // Nice reference: http://www.sunshine2k.de/coding/java/TriangleRasterization/generalTriangle.png
-    void RendererBase3D::DrawFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
+    // https://austinmorlan.com/posts/drawing_a_triangle/
+    // TODO https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/
+    void RendererBase3D::DrawFilledTriangleBarycentric(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour)
     {
-        // Sort p1, p2, and p3 so that p1 < p2 < p3
-        if (y2 < y1) { Swap(x2, y2, z2, x1, y1, z1); }
-        if (y3 < y1) { Swap(x3, y3, z3, x1, y1, z1); }
-        if (y3 < y2) { Swap(x3, y3, z3, x2, y2, z2); }
+        // Area of the parallelogram formed by edge vectors
+        float area = (v3[0] - v1[0]) * (v2[1] - v1[1]) - (v3[1] - v1[1]) * (v2[0] - v1[0]);
 
-        if (Equalf(y2, y3))
-        {
-            DrawUpperFilledTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, colour);
-        }
-        else if (Equalf(y1, y2))
-        {
-            DrawLowerFilledTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, colour);
-        }
-        else
-        {
-            // Find x4, y4, and z4 using similar triangles: (x3-x1)/(y3-y1)=(x4-x1)/(y4-y1), y4=y2
-            float x4 = x1 + (y2 - y1) * (x3 - x1) / (y3 - y1);
-            float y4 = y2;
-            float z4;
+        // top left and bottom right points of a bounding box
+        float xmin = std::min({v1[0], v2[0], v3[0]});
+        float xmax = std::max({v1[0], v2[0], v3[0]});
+        float ymin = std::min({v1[1], v2[1], v3[1]});
+        float ymax = std::max({v1[1], v2[1], v3[1]});
 
-            if (z1 > z3) // p1 is farther than p3
-            {
-                z4 = z3 + (y3 - y4) * (z1 - z3) / (y3 - y1);
-            }
-            else
-            {
-                z4 = z3 - (y3 - y4) * (z3 - z1) / (y3 - y1);
-            }
-
-            DrawUpperFilledTriangle(x1, y1, z1, x2, y2, z2, x4, y4, z4, colour);
-            DrawLowerFilledTriangle(x2, y2, z2, x4, y4, z4, x3, y3, z3, colour);
-        }
-    }
-
-    void RendererBase3D::DrawUpperFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
-    {
-        float dy1 = std::fabs(y2 - y1);
-        float dy2 = std::fabs(y3 - y1);
-
-        float curx1 = x1;
-        float curx2 = x1;
-        float xinc1 = (x2 - x1) / dy1;
-        float xinc2 = (x3 - x1) / dy2;
-
-        float curz1 = z1;
-        float curz2 = z1;
-        float zinc1 = (z2 - z1) / dy1;
-        float zinc2 = (z3 - z1) / dy2;
+        // basic clipping
+        int x1 = std::max(int(std::floor(xmin)), 0);
+        int x2 = std::min(int(std::floor(xmax)), width - 1);
+        int y1 = std::max(int(std::floor(ymin)), 0);
+        int y2 = std::min(int(std::floor(ymax)), height - 1);
 
         for (int y = y1; y <= y2; ++y)
         {
-            DrawLine(curx1, y, curz1, curx2, y, curz2, colour);
-
-            curx1 += xinc1;
-            curx2 += xinc2;
-            curz1 += zinc1;
-            curz2 += zinc2;
-        }
-    }
-
-    void RendererBase3D::DrawLowerFilledTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
-    {
-        float dy1 = std::fabs(y3 - y1);
-        float dy2 = std::fabs(y3 - y2);
-
-        float curx1 = x3;
-        float curx2 = x3;
-        float xinc1 = (x3 - x1) / dy1;
-        float xinc2 = (x3 - x2) / dy2;
-
-        float curz1 = z3;
-        float curz2 = z3;
-        float zinc1 = (z3 - z1) / dy1;
-        float zinc2 = (z3 - z2) / dy2;
-
-        for (int y = y3; y >= y1; --y)
-        {
-            DrawLine(curx1, y, curz1, curx2, y, curz2, colour);
-
-            curx1 -= xinc1;
-            curx2 -= xinc2;
-            curz1 -= zinc1;
-            curz2 -= zinc2;
-        }
-    }
-
-    void RendererBase3D::DrawWireframeTriangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Colour& colour)
-    {
-        DrawLine(x1, y1, z1, x2, y2, z2, colour);
-        DrawLine(x1, y1, z1, x3, y3, z3, colour);
-        DrawLine(x2, y2, z2, x3, y3, z3, colour);
-    }
-
-    // Adapted from https://github.com/ssloy/tinyrenderer/wiki/Lesson-1:-Bresenham%E2%80%99s-Line-Drawing-Algorithm
-    void RendererBase3D::DrawLine(float x1, float y1, float z1, float x2, float y2, float z2, const Colour& colour)
-    {
-        bool steep = false;
-
-        if (std::fabs(x1 - x2) < std::fabs(y1 - y2))
-        {
-            Swap(x1, x2, z1, y1, y2, z1);
-            steep = true;
-        }
-
-        if (x1 > x2)
-        {
-            Swap(x1, y1, z1, x2, y2, z2);
-        }
-
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float dz = z2 - z1;
-
-        int y = y1;
-        int yinc = y2 > y1 ? 1 : -1;
-        float derrY = std::fabs(dy) * 2.0;
-        float errY = 0.0;
-
-        float z = z1;
-        float zinc = dz / std::fabs(dx);
-
-        if (steep)
-        {
             for (int x = x1; x <= x2; ++x)
             {
-                if (!WithinBounds(x, y))
+                float px = x + 0.5f;
+                float py = y + 0.5f;
+
+                // Barycentric weights
+                float w1 = ((px - v2[0]) * (v3[1] - v2[1]) - (py - v2[1]) * (v3[0] - v2[0])) / area;
+                float w2 = ((px - v3[0]) * (v1[1] - v3[1]) - (py - v3[1]) * (v1[0] - v3[0])) / area;
+                float w3 = ((px - v1[0]) * (v2[1] - v1[1]) - (py - v1[1]) * (v2[0] - v1[0])) / area;
+
+                if (w1 >= 0.0f && w2 >= 0.0f && w3 >= 0.0f)
                 {
-                    continue;
+                    float z = w1 * v1[2] + w2 * v2[2] + w3 * v3[2];
+                    float depth = 1.0f / z;
+
+                    PutPixel(x, y, depth, colour.argb);
                 }
-
-                int offset = x * width + y;
-                float depth = 1.0 / z;
-
-                if (zdepth[offset] < depth)
-                {
-                    zdepth[offset] = depth;
-                    pixels[offset] = colour.argb;
-                }
-
-                errY += derrY;
-                if (errY > dx)
-                {
-                    y += yinc;
-                    errY -= dx * 2;
-                }
-
-                z += zinc;
             }
         }
-        else
+    }
+
+    void RendererBase3D::DrawWireframeTriangleDDA(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour)
+    {
+        // TODO check bounds
+        DrawLineDDA(v1, v2, colour);
+        DrawLineDDA(v1, v3, colour);
+        DrawLineDDA(v2, v3, colour);
+    }
+
+    // TODO integer DDA might be faster
+    void RendererBase3D::DrawLineDDA(const vec3f& v1, const vec3f& v2, const Colour& colour)
+    {
+        float dx = v2[0] - v1[0];
+        float dy = v2[1] - v1[1];
+        float dz = v2[2] - v1[2];
+
+        float step = std::fabs(dx) >= std::fabs(dy) ? std::fabs(dx) : std::fabs(dy);
+
+        dx /= step;
+        dy /= step;
+        dz /= step;
+
+        float x = v1[0];
+        float y = v1[1];
+        float z = v1[2];
+
+        for (int i = 0; i <= step; ++i)
         {
-            for (int x = x1; x <= x2; ++x)
-            {
-                if (!WithinBounds(x, y))
-                {
-                    continue;
-                }
+            PutPixel(x, y, 1.0f / z, colour.argb);
 
-                int offset = y * width + x;
-                float depth = 1.0 / z; 
+            x += dx;
+            y += dy;
+            z += dz;
+        }
+    }
 
-                if (zdepth[offset] < depth)
-                {
-                    zdepth[offset] = depth;
-                    pixels[offset] = colour.argb;
-                }
+    void RendererBase3D::PutPixel(int x, int y, float depth, uint32_t argb)
+    {
+        int offset = y * width + x;
 
-                errY += derrY;
-                if (errY > dx)
-                {
-                    y += yinc;
-                    errY -= dx * 2;
-                }
-
-                z += zinc;
-            }
+        if (zdepth[offset] < depth)
+        {
+            zdepth[offset] = depth;
+            pixels[offset] = argb;
         }
     }
 
@@ -299,24 +199,6 @@ namespace mygl
     {
         std::fill(zdepth.begin(), zdepth.end(), ZMIN);
         std::fill(pixels.begin(), pixels.end(), 0);
-    }
-
-    bool RendererBase3D::WithinBounds(float x, float y)
-    {
-        return x >= 0.0 && x < width &&
-               y >= 0.0 && y < height;
-    }
-
-    bool RendererBase3D::Equalf(float f1, float f2)
-    {
-        return (std::fabs(f1 - f2) <= std::numeric_limits<float>::epsilon() * std::fmax(std::fabs(f1), std::fabs(f2)));
-    }
-
-    void RendererBase3D::Swap(float& x1, float& y1, float& z1, float& x2, float& y2, float& z2)
-    {
-        std::swap(x1, x2);
-        std::swap(y1, y2);
-        std::swap(z1, z2);
     }
 }
 

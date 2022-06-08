@@ -56,6 +56,9 @@ namespace mygl
         // Find the vector projection of this vector onto v (ie. proj_v this)
         Vector Project(const Vector& v) const;
 
+        // Reduce the dimension of this vector
+        Vector<T, N - 1> Demote() const;
+
         size_t Dimensions() const { return N; }
     private:
         T* a;
@@ -197,6 +200,12 @@ namespace mygl
     Vector<T, N> Vector<T, N>::Project(const Vector<T, N>& v) const
     {
         return Component(v) * v.Unit();
+    }
+
+    template<typename T, size_t N>
+    Vector<T, N - 1> Vector<T, N>::Demote() const
+    {
+        return Vector<T, N - 1>(a[0], a[1], a[2]);
     }
 
     template<typename T, size_t N>
