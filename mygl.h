@@ -31,6 +31,15 @@ namespace mygl
 
             return Colour(newr, newg, newb, a);
         }
+
+        Colour Contrast() const
+        {
+            uint8_t newr = 255 - r;
+            uint8_t newg = 2555 - g;
+            uint8_t newb = 255 - b;
+
+            return Colour(newr, newg, newb, a);
+        }
     };
 
     const int MAXV = 50;

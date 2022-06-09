@@ -32,6 +32,7 @@ struct Cubie
 
 /*
 Cube
+
     +6-------+5
    /         /|
  +7--------+8 |
@@ -39,6 +40,7 @@ Cube
   | +1      |+4
   |         |/
  +2--------+3
+
 */
 
 const Model cube = {
@@ -111,7 +113,9 @@ public:
     void HandleMouseRelease(int mouseX, int mouseY);
     void HandleMouseMotion(int mouseX, int mouseY);
 
-    void HandleRightMouseButton(int mouseX, int mouseY);
+    void HandleRightMouseButtonPress(int mouseX, int mouseY);
+    void HandleRightMouseButtonRelease(int mouseX, int mouseY);
+    void HandleMouseMotionR(int mouseX, int mouseY);
 private:
     HWND hwnd;
 
@@ -122,8 +126,13 @@ private:
     Cubie rubik_cube[8];
 
     int cur_idx;
-    int flagged;
-    std::vector<int> cubie_index; // position on screen corresponds to which cubie?
+    int cur_face;
+    int flagged_index;
+    int flagged_face;
+
+    // position on screen corresponds to which cubie and which face?
+    // each element is 8 bit unsigned where higher nibble represents face number and lower nibble represents cube index (for cubie array)
+    std::vector<uint8_t> mask;
 
     vec3f light; // direction of light source (from model's pov)
 
@@ -137,9 +146,9 @@ private:
 };
 
 Rubik::Rubik(int width, int height)
-  : RendererBase3D(width, height), cubie_index(width * height)
+  : RendererBase3D(width, height), mask(width * height)
 {
-    std::fill(cubie_index.begin(), cubie_index.end(), -1); // -1 means index not specified
+    std::fill(mask.begin(), mask.end(), -1); // -1 means index not specified
 }
 
 Rubik::~Rubik()
@@ -286,7 +295,8 @@ void Rubik::Init()
     rubik_cube[7].col[5] = BLACK;
     rubik_cube[7].position = CreateTranslationMatrix4<float>(20.0f, -20.0f, 20.0f);
 
-    flagged = -1;
+    flagged_index = -1;
+    flagged_face = -1;
 
     light = vec3f(0.0f, 0.0f, 50.0f).Unit(); // (in world coordinates) light comes out behind the screen (normalized)
 
@@ -309,7 +319,7 @@ void Rubik::Update()
 
 void Rubik::Render()
 {
-    std::fill(cubie_index.begin(), cubie_index.end(), -1); // important!
+    std::fill(mask.begin(), mask.end(), -1); // important!
 
     int trigs = cube.ntrig;
 
@@ -319,6 +329,8 @@ void Rubik::Render()
 
         for (int i = 0; i < trigs; ++i)
         {
+            cur_face = i / 2;
+
             Triangle t = cube.triangle[i];
 
             vec4f v1 = modelm * rubik_cube[idx].position * cube.vertex[t.vertex[0]];
@@ -351,7 +363,13 @@ void Rubik::Render()
                 v2 = vpTransf * v2;
                 v3 = vpTransf * v3;
 
-                Colour col = idx == flagged ? RED : rubik_cube[idx].col[i / 2];
+                Colour col = rubik_cube[idx].col[i / 2];
+
+                if (idx == flagged_index && i / 2 == flagged_face)
+                {
+                    col = col.Contrast();
+                }
+
                 DrawFilledTriangleBarycentric(v1.Demote(), v2.Demote(), v3.Demote(), col.AdjustBrightness(L));
             }
         }
@@ -366,7 +384,7 @@ void Rubik::PutPixel(int x, int y, float depth, uint32_t argb)
     {
         zdepth[offset] = depth;
         pixels[offset] = argb;
-        cubie_index[offset] = cur_idx;
+        mask[offset] = (cur_face << 4) | cur_idx;
     }
 }
 
@@ -394,10 +412,29 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
     modelm = trans * rot;
 }
 
-void Rubik::HandleRightMouseButton(int mouseX, int mouseY)
+void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 {
     int offset = mouseY * width + mouseX;
-    flagged = cubie_index[offset];
+
+    flagged_index = mask[offset] & 0b1111;
+    flagged_face = mask[offset] >> 4;
+
+    p = Project(mouseX, mouseY); // TODO
+}
+
+void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
+{
+    
+}
+
+void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
+{
+    q = Project(mouseX, mouseY);
+
+    vec3f n = CrossProduct(p, q);
+    float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
+
+    // TODO
 }
 
 vec3f Rubik::Project(int mx, int my)
@@ -424,6 +461,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static Rubik app(SCREEN_WIDTH, SCREEN_HEIGHT);
     static bool bMousePressed = false;
+    static bool bLeftButton = false;
     int mouseX, mouseY;
 
     switch (msg)
@@ -451,6 +489,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         app.HandleMousePress(mouseX, mouseY);
         bMousePressed = true;
+        bLeftButton = true;
 
         break;
     }
@@ -461,6 +500,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         app.HandleMouseRelease(mouseX, mouseY);
         bMousePressed = false;
+        bLeftButton = false;
 
         break;
     }
@@ -469,18 +509,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         mouseX = GET_X_LPARAM(lParam);
         mouseY = GET_Y_LPARAM(lParam);
 
-        app.HandleRightMouseButton(mouseX, mouseY);
+        app.HandleRightMouseButtonPress(mouseX, mouseY);
+        bMousePressed = true;
+
+        break;
+    }
+    case WM_RBUTTONUP:
+    {
+        mouseX = GET_X_LPARAM(lParam);
+        mouseY = GET_Y_LPARAM(lParam);
+
+        app.HandleRightMouseButtonRelease(mouseX, mouseY);
+        bMousePressed = false;
 
         break;
     }
     case WM_MOUSEMOVE:
     {
+        mouseX = GET_X_LPARAM(lParam);
+        mouseY = GET_Y_LPARAM(lParam);
+
         if ((wParam & MK_LBUTTON) != 0 && bMousePressed) // the left mouse button is pressed
         {
-            mouseX = GET_X_LPARAM(lParam);
-            mouseY = GET_Y_LPARAM(lParam);
-
             app.HandleMouseMotion(mouseX, mouseY);
+        }
+        else if ((wParam & MK_RBUTTON) != 0 && bMousePressed)
+        {
+            app.HandleMouseMotionR(mouseX, mouseY);
         }
         break;
     }
