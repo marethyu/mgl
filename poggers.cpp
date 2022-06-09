@@ -115,7 +115,7 @@ private:
     float angle; // for continuous counterclockwise rotation about y-axis
     const float dAngle = 0.02f;
 
-    vec3f light; // direction of light source
+    vec3f light; // direction of light source (from model's pov)
 
     vec3f p, q, n;
     Quaternion<float> currentQ, lastQ;
@@ -205,8 +205,7 @@ void Poggers::Destroy()
 
 void Poggers::Init()
 {
-    // TODO why the fucking fuck the coordinates for defining light position seems to be reversed
-    light = vec3f(0.0f, 0.0f, -50.0f).Unit(); // (in world coordinates) light comes out behind the screen (normalized)
+    light = vec3f(0.0f, 0.0f, 50.0f).Unit(); // (in world coordinates) light comes out behind the screen (normalized)
 
     angle = 0.0f;
     rotatey = Quaternion<float>(true);
@@ -257,13 +256,13 @@ void Poggers::Render()
         vec3f vert3 = v3.Demote();
 
         // vector normal to surface
-        vec3f n = CrossProduct(vert2 - vert1, vert3 - vert1).Unit();
+        vec3f n = CrossProduct(vert3 - vert1, vert2 - vert1).Unit();
 
         // luminance
         float L = n.Dot(light);
 
         //debug
-        //std::cerr << "Triangle #" << i << ": Luminance " << L << std::endl;
+        //std::cerr << "Triangle #" << i << ": n=" << n << ", light=" << light << ", Luminance=" << L << std::endl;
 
         // L <= 0 means the triangle is hidden from the view
         if (L > 0.0f)
@@ -290,10 +289,12 @@ void Poggers::Render()
                 DrawWireframeTriangleDDA(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
             }
 
+            //debug
             //drawn++;
         }
     }
 
+    //debug
     //std::cerr << "Number of triangles drawn: " << drawn << std::endl;
 }
 
