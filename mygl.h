@@ -11,14 +11,25 @@ namespace mygl
 {
     struct Colour
     {
+        uint8_t r, g, b, a;
         uint32_t argb;
 
         Colour()
         {}
 
         Colour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+          : r(r), g(g), b(b), a(a)
         {
             argb = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+
+        Colour AdjustBrightness(float L) const
+        {
+            uint8_t newr = uint8_t(L * r);
+            uint8_t newg = uint8_t(L * g);
+            uint8_t newb = uint8_t(L * b);
+
+            return Colour(newr, newg, newb, a);
         }
     };
 

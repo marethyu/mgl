@@ -1,11 +1,11 @@
 /* g++ poggers.cpp -o poggers -std=c++14 -lSDL2 */
 /*
 TODO
-- lighting - back face culling
 - shaders
 - camera
 - amp.h to exploit gpu
 - unproject https://dondi.lmu.build/share/cg/unproject-explained.pdf
+- gif encoder
 */
 
 #include <SDL2/SDL.h>
@@ -15,6 +15,9 @@ TODO
 // these header files must be placed after mygl.h for technical reasons
 #include <Windows.h>
 #include <Windowsx.h>
+
+//debug
+//#include <iostream>
 
 #define ID_TIMER 1
 
@@ -52,27 +55,27 @@ const Model cube = {
     },
     {
         // Face 1-2-6-7
-        {true, RED, {0, 1, 6}}, // 1-2-7
-        {true, RED, {0, 5, 6}}, // 1-6-7
+        {true, RED, {0, 6, 1}},   // 1-7-2
+        {true, RED, {0, 5, 6}},   // 1-6-7
 
         // Face 2-3-7-8
-        {true, YELLOW, {1, 2, 7}}, // 2-3-8
+        {true, YELLOW, {1, 7, 2}}, // 2-8-3
         {true, YELLOW, {1, 6, 7}}, // 2-7-8
 
         // Face 3-4-8-5
-        {true, INDIGO, {2, 3, 4}}, // 3-4-5
+        {true, INDIGO, {2, 4, 3}}, // 3-5-4
         {true, INDIGO, {2, 7, 4}}, // 3-8-5
 
         // Face 4-1-5-6
         {true, GREEN, {0, 3, 4}}, // 1-4-5
-        {true, GREEN, {0, 5, 4}}, // 1-6-5
+        {true, GREEN, {0, 4, 5}}, // 1-5-6
 
         // Face 1-2-3-4
-        {true, BLUE, {0, 1, 2}}, // 1-2-3
-        {true, BLUE, {0, 3, 2}}, // 1-4-3
+        {true, BLUE, {0, 1, 2}},  // 1-2-3
+        {true, BLUE, {0, 2, 3}},  // 1-3-4
 
         // Face 5-6-7-8
-        {true, ORANGE, {4, 5, 6}}, // 5-6-7
+        {true, ORANGE, {4, 6, 5}}, // 5-7-6
         {true, ORANGE, {4, 7, 6}}, // 5-8-7
     }
 };
@@ -112,11 +115,13 @@ private:
     float angle; // for continuous counterclockwise rotation about y-axis
     const float dAngle = 0.02f;
 
+    vec3f light; // direction of light source
+
     vec3f p, q, n;
     Quaternion<float> currentQ, lastQ;
     Quaternion<float> rotatey;
-    mat4f vertexTransf;
-    mat4f trans_proj, vpTransf;
+    mat4f trans, modelm, projm;
+    mat4f vpTransf;
 
     vec3f Project(int mx, int my);
 };
@@ -200,17 +205,20 @@ void Poggers::Destroy()
 
 void Poggers::Init()
 {
+    // TODO why the fucking fuck the coordinates for defining light position seems to be reversed
+    light = vec3f(0.0f, 0.0f, -50.0f).Unit(); // (in world coordinates) light comes out behind the screen (normalized)
+
     angle = 0.0f;
+    rotatey = Quaternion<float>(true);
+
     currentQ = Quaternion<float>(true);
     lastQ = Quaternion<float>(zaxis, M_PI / 4.0f); // the cube is initially rotated 45 degree counterclockwise about z-axis
 
     mat4f rot = CreateRotationMatrix4<float>(lastQ);
-    mat4f trans = CreateTranslationMatrix4<float>(0.0f, 0.0f, -120.0f);
-    mat4f proj = CreateOrthographic4<float>(-120.0f, 120.0f, -120.0f, 120.0f, 0.0f, 200.0f);
-    //mat4f proj = CreateViewingFrustum4<float>(-0.2f, 0.2f, -0.2f, 0.2f, 0.1f, 140.0f);
 
-    trans_proj = proj * trans;
-    vertexTransf = trans_proj * rot;
+    trans = CreateTranslationMatrix4<float>(0.0f, 0.0f, -100.0f);
+    modelm = trans * rot;
+    projm = CreateOrthographic4<float>(-120.0f, 120.0f, -120.0f, 120.0f, 0.0f, 200.0f); // CreateViewingFrustum4<float>(-0.2f, 0.2f, -0.2f, 0.2f, 0.1f, 140.0f);
 
     // for viewport transform
     mat4f vpScale = CreateScalingMatrix4<float>(width / 2.0f, -height / 2.0f, width / 2.0f); // the minus sign is used to flip y axis; assume that the depth of z is width
@@ -226,39 +234,67 @@ void Poggers::Update()
     rotatey = Quaternion<float>(yaxis, angle);
     mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ * rotatey);
 
-    vertexTransf = trans_proj * rot;
+    modelm = trans * rot;
 }
 
 void Poggers::Render()
 {
     int trigs = cube.ntrig;
 
+    //debug
+    //int drawn = 0;
+
     for (int i = 0; i < trigs; ++i)
     {
         Triangle t = cube.triangle[i];
 
-        vec4f v1 = vertexTransf * cube.vertex[t.vertex[0]];
-        vec4f v2 = vertexTransf * cube.vertex[t.vertex[1]];
-        vec4f v3 = vertexTransf * cube.vertex[t.vertex[2]];
+        vec4f v1 = modelm * cube.vertex[t.vertex[0]];
+        vec4f v2 = modelm * cube.vertex[t.vertex[1]];
+        vec4f v3 = modelm * cube.vertex[t.vertex[2]];
 
-        // perspective division
-        v1 /= v1[3];
-        v2 /= v2[3];
-        v3 /= v3[3];
+        vec3f vert1 = v1.Demote();
+        vec3f vert2 = v2.Demote();
+        vec3f vert3 = v3.Demote();
 
-        v1 = vpTransf * v1;
-        v2 = vpTransf * v2;
-        v3 = vpTransf * v3;
+        // vector normal to surface
+        vec3f n = CrossProduct(vert2 - vert1, vert3 - vert1).Unit();
 
-        if (t.filled)
+        // luminance
+        float L = n.Dot(light);
+
+        //debug
+        //std::cerr << "Triangle #" << i << ": Luminance " << L << std::endl;
+
+        // L <= 0 means the triangle is hidden from the view
+        if (L > 0.0f)
         {
-            DrawFilledTriangleBarycentric(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
-        }
-        else
-        {
-            DrawWireframeTriangleDDA(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
+            v1 = projm * v1;
+            v2 = projm * v2;
+            v3 = projm * v3;
+
+            // perspective division
+            v1 /= v1[3];
+            v2 /= v2[3];
+            v3 /= v3[3];
+
+            v1 = vpTransf * v1;
+            v2 = vpTransf * v2;
+            v3 = vpTransf * v3;
+
+            if (t.filled)
+            {
+                DrawFilledTriangleBarycentric(v1.Demote(), v2.Demote(), v3.Demote(), t.colour.AdjustBrightness(L));
+            }
+            else
+            {
+                DrawWireframeTriangleDDA(v1.Demote(), v2.Demote(), v3.Demote(), t.colour);
+            }
+
+            //drawn++;
         }
     }
+
+    //std::cerr << "Number of triangles drawn: " << drawn << std::endl;
 }
 
 void Poggers::HandleMousePress(int mouseX, int mouseY)
@@ -282,7 +318,7 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
     currentQ = Quaternion<float>(n, theta);
 
     mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ * rotatey);
-    vertexTransf = trans_proj * rot;
+    modelm = trans * rot;
 }
 
 vec3f Poggers::Project(int mx, int my)
