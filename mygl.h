@@ -108,7 +108,8 @@ namespace mygl
         void DrawFilledTriangleBarycentric(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour); // Warning: vertexes might need to be arranged in clockwise direction
         void DrawWireframeTriangleDDA(const vec3f& v1, const vec3f& v2, const vec3f& v3, const Colour& colour);
         void DrawLineDDA(const vec3f& v1, const vec3f& v2, const Colour& colour);
-        void PutPixel(int x, int y, float depth, uint32_t argb);
+
+        virtual void PutPixel(int x, int y, float depth, uint32_t argb); // can be optionally overriden
 
         void ClearScreen();
     };
