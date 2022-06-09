@@ -149,7 +149,7 @@ namespace mygl
                 float w2 = ((px - v3[0]) * (v1[1] - v3[1]) - (py - v3[1]) * (v1[0] - v3[0])) / area;
                 float w3 = ((px - v1[0]) * (v2[1] - v1[1]) - (py - v1[1]) * (v2[0] - v1[0])) / area;
 
-                if (w1 >= 0.0f && w2 >= 0.0f && w3 >= 0.0f)
+                if ((w1 >= 0.0f) & (w2 >= 0.0f) & (w3 >= 0.0f))
                 {
                     float z = w1 * v1[2] + w2 * v2[2] + w3 * v3[2];
                     float depth = 1.0f / z;
