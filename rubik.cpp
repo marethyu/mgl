@@ -134,6 +134,9 @@ private:
     // each element is 8 bit unsigned where higher nibble represents face number and lower nibble represents cube index (for cubie array)
     std::vector<uint8_t> mask;
 
+    //debug
+    vec4f normal, origin;
+
     vec3f light; // direction of light source (from model's pov)
 
     vec3f p, q;
@@ -298,6 +301,10 @@ void Rubik::Init()
     flagged_index = -1;
     flagged_face = -1;
 
+    //debug
+    normal = vec4f(0.0f, 50.0f, 0.0f, 1.0f);
+    origin = vec4f(0.0f, 0.0f, 0.0f, 1.0f);
+
     light = vec3f(0.0f, 0.0f, 50.0f).Unit(); // (in world coordinates) light comes out behind the screen (normalized)
 
     currentQ = Quaternion<float>(true);
@@ -363,9 +370,9 @@ void Rubik::Render()
                 v2 = vpTransf * v2;
                 v3 = vpTransf * v3;
 
-                Colour col = rubik_cube[idx].col[i / 2];
+                Colour col = rubik_cube[cur_idx].col[cur_face];
 
-                if (idx == flagged_index && i / 2 == flagged_face)
+                if (cur_idx == flagged_index && cur_face == flagged_face)
                 {
                     col = col.Contrast();
                 }
@@ -374,6 +381,16 @@ void Rubik::Render()
             }
         }
     }
+
+    //debug
+    mat4f vTrans = projm * modelm;
+    vec4f n = vTrans * normal;
+    vec4f o = vTrans * origin;
+    n /= n[3];
+    o /= o[3];
+    n = vpTransf * n;
+    o = vpTransf * o;
+    DrawLineDDA(o.Demote(), n.Demote(), RED);
 }
 
 void Rubik::PutPixel(int x, int y, float depth, uint32_t argb)
@@ -419,7 +436,13 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
     flagged_index = mask[offset] & 0b1111;
     flagged_face = mask[offset] >> 4;
 
-    p = Project(mouseX, mouseY); // TODO
+    // prevent clicking on interiors
+    if (rubik_cube[flagged_index].col[flagged_face].argb == BLACK.argb)
+    {
+        flagged_index = flagged_index = -1;
+    }
+
+    p = Project(mouseX, mouseY);
 }
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
@@ -434,7 +457,15 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     vec3f n = CrossProduct(p, q);
     float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
-    // TODO
+    //debug
+    if (std::fabs(n[0]) > std::fabs(n[1]) && std::fabs(n[0]) > std::fabs(n[2])) // x is the largest
+        n[1] = n[2] = 0.0f;
+    else if (std::fabs(n[1]) > std::fabs(n[0]) && std::fabs(n[1]) > std::fabs(n[2])) // y is the largest
+        n[0] = n[2] = 0.0f;
+    else
+        n[0] = n[1] = 0.0f;
+    n = n.Unit();
+    normal = vec4f(n[0] * 80.0f, n[1] * 80.0f, n[2] * 80.0f, 1.0f);
 }
 
 vec3f Rubik::Project(int mx, int my)
