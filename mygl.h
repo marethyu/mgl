@@ -77,6 +77,8 @@ namespace mygl
     const Colour BLUE(0, 0, 255, 255);
     const Colour INDIGO(75, 0, 130, 255);
     const Colour VIOLET(148, 0, 211, 255);
+    const Colour BLACK(0, 0, 0, 255);
+    const Colour WHITE(255, 255, 255, 255);
 
     const float ZMIN = std::numeric_limits<float>::lowest();
 
