@@ -140,7 +140,7 @@ namespace mygl
     {
         if (IsEqual<T>(s, 0))
         {
-            throw std::logic_error("division by zero");
+            throw std::logic_error("[vector] division by zero");
         }
 
         for (int i = 0; i < N; ++i)
@@ -411,7 +411,7 @@ namespace mygl
     {
         if (IsEqual<T>(c, 0))
         {
-            throw std::logic_error("division by zero");
+            throw std::logic_error("[matrix] division by zero");
         }
 
         for (int i = 0; i < M; ++i)
@@ -929,7 +929,7 @@ namespace mygl
     {
         if (r == 0)
         {
-            throw std::logic_error("division by zero");
+            throw std::logic_error("[quaternion] division by zero");
         }
 
         s_ /= r;
