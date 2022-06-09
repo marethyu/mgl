@@ -6,6 +6,7 @@ TODO
 - amp.h to exploit gpu
 - unproject https://dondi.lmu.build/share/cg/unproject-explained.pdf
 - gif encoder
+- mysterious division by zero
 */
 
 #include <SDL2/SDL.h>
