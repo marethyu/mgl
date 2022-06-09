@@ -117,7 +117,7 @@ private:
 
     vec3f light; // direction of light source (from model's pov)
 
-    vec3f p, q, n;
+    vec3f p, q;
     Quaternion<float> currentQ, lastQ;
     Quaternion<float> rotatey;
     mat4f trans, modelm, projm;
@@ -313,7 +313,7 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
 {
     q = Project(mouseX, mouseY);
 
-    n = CrossProduct(p, q);
+    vec3f n = CrossProduct(p, q);
     float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);

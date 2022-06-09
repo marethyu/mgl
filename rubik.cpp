@@ -24,9 +24,14 @@ const int SCREEN_WIDTH = 600;
 const int SCREEN_HEIGHT = 600;
 const int SCREEN_SCALE_FACTOR = 1;
 
+struct Cubie
+{
+    Colour col[6]; // colour for each of the 6 faces
+    mat4f position; // represents cube's position in 3D space (points to the center)
+};
+
 /*
 Cube
-
     +6-------+5
    /         /|
  +7--------+8 |
@@ -34,7 +39,6 @@ Cube
   | +1      |+4
   |         |/
  +2--------+3
-
 */
 
 const Model cube = {
@@ -75,12 +79,6 @@ const Model cube = {
         {true, Colour(), {4, 6, 5}}, // 5-7-6
         {true, Colour(), {4, 7, 6}}, // 5-8-7
     }
-};
-
-struct Cubie
-{
-    Colour col[6]; // colour for each of the 6 faces
-    mat4f position; // represents cube's position in 3D space (points to the center)
 };
 
 const Colour RUBIK_GREEN(0, 155, 72, 255);
@@ -129,7 +127,7 @@ private:
 
     vec3f light; // direction of light source (from model's pov)
 
-    vec3f p, q, n;
+    vec3f p, q;
     Quaternion<float> currentQ, lastQ;
 
     mat4f trans, modelm, projm;
@@ -387,7 +385,7 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
 {
     q = Project(mouseX, mouseY);
 
-    n = CrossProduct(p, q);
+    vec3f n = CrossProduct(p, q);
     float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);
