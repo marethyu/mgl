@@ -36,6 +36,8 @@ namespace mygl
         Vector(const Vector& v);
         ~Vector() { delete[] a; }
 
+        bool operator==(const Vector& v) const;
+
         Vector& operator=(const Vector& v);
         Vector& operator+=(const Vector& v);
         Vector& operator-=(const Vector& v);
@@ -89,6 +91,20 @@ namespace mygl
     {
         _init_data();
         *this = v;
+    }
+
+    template<typename T, size_t N>
+    bool Vector<T, N>::operator==(const Vector<T, N>& v) const
+    {
+        for (int i = 0; i < N; ++i)
+        {
+            if (!IsEqual<T>(a[i], v[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     template<typename T, size_t N>
