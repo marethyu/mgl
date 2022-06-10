@@ -1,12 +1,14 @@
 /* g++ rubik.cpp -o rubik -std=c++14 -lSDL2 */
 /*
 TODO:
-- Implement gluUnproject
 - Isn't it wasteful to update every millisecond?
 */
 
 #include <array>
 #include <algorithm>
+
+//debug
+#include <iostream>
 
 #include <SDL2/SDL.h>
 
@@ -144,6 +146,10 @@ private:
 
     mat4f trans, modelm, projm;
     mat4f vpTransf;
+
+    // to unproject screen coordinates (x, y, depth), use unprojm*vec4f(x, y, 1/depth, 1.0f)
+    // warning: it might not work if perspective projection is used...
+    mat4f unprojm;
 
     vec3f Project(int mx, int my);
 };
@@ -319,6 +325,12 @@ void Rubik::Init()
     mat4f vpTranslate = CreateTranslationMatrix4<float>(width / 2.0f, height / 2.0f, width / 2.0f + 0.5f); // +0.5 to make sure that z > 0
 
     vpTransf = vpTranslate * vpScale;
+
+    mat4f vpTransfi = Inverse4<float>(vpTransf);
+    mat4f projmi = Inverse4<float>(projm);
+    mat4f modelmi = Inverse4<float>(modelm);
+
+    unprojm = modelmi * projmi * vpTransfi;
 }
 
 void Rubik::Update()
@@ -442,7 +454,7 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
         flagged_index = flagged_index = -1;
     }
 
-    p = Project(mouseX, mouseY);
+    p = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[offset], 1.0f)).Demote();
 }
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
@@ -452,20 +464,33 @@ void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 
 void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 {
-    q = Project(mouseX, mouseY);
+    q = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[mouseY * width + mouseX], 1.0f)).Demote();
 
-    vec3f n = CrossProduct(p, q);
     float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
 
     //debug
-    if (std::fabs(n[0]) > std::fabs(n[1]) && std::fabs(n[0]) > std::fabs(n[2])) // x is the largest
-        n[1] = n[2] = 0.0f;
-    else if (std::fabs(n[1]) > std::fabs(n[0]) && std::fabs(n[1]) > std::fabs(n[2])) // y is the largest
-        n[0] = n[2] = 0.0f;
+    vec3f drag = q - p;
+    float xsize = std::fabs(drag[0]);
+    float ysize = std::fabs(drag[1]);
+    float zsize = std::fabs(drag[2]);
+    if (xsize > ysize && xsize > zsize) // x is the largest
+        drag[1] = drag[2] = 0.0f;
+    else if (ysize > xsize && ysize > zsize) // y is the largest
+        drag[0] = drag[2] = 0.0f;
     else
-        n[0] = n[1] = 0.0f;
-    n = n.Unit();
+        drag[0] = drag[1] = 0.0f;
+    drag = drag.Unit();
+    Triangle t = cube.triangle[flagged_face * 2];
+    vec4f v1 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[0]];
+    vec4f v2 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[1]];
+    vec4f v3 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[2]];
+    vec3f vert1 = v1.Demote();
+    vec3f vert2 = v2.Demote();
+    vec3f vert3 = v3.Demote();
+    vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).Unit();
+    vec3f n = CrossProduct(surface_normal, drag);
     normal = vec4f(n[0] * 80.0f, n[1] * 80.0f, n[2] * 80.0f, 1.0f);
+    std::cerr << "drag=" << drag << ", normal=" << normal << std::endl;
 }
 
 vec3f Rubik::Project(int mx, int my)
