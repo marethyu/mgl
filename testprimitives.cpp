@@ -248,7 +248,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     rcClient.right = SCREEN_WIDTH * SCREEN_SCALE_FACTOR;
     rcClient.bottom = SCREEN_HEIGHT * SCREEN_SCALE_FACTOR;
 
-    AdjustWindowRectEx(&rcClient, style, TRUE, 0);
+    AdjustWindowRectEx(&rcClient, style, FALSE, 0);
 
     hWnd = CreateWindow(szClassName,
         TEXT("SDLWin1"),
@@ -264,7 +264,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (hWnd == NULL)
     {
-        MessageBox(NULL, TEXT("Window Creation Failed!"), TEXT("errYor!"),
+        MessageBox(NULL, TEXT("Window Creation Failed!"), TEXT("error!"),
             MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
