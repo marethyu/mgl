@@ -245,7 +245,7 @@ int main (int argc, char** argv)
                     q = project(event.motion.x, event.motion.y);
 
                     n = CrossProduct(p, q);
-                    theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
+                    theta = std::acos((p * q) / (p.Magnitude() * q.Magnitude()));
 
                     currentQ = Quaternion<double>(n, theta);
                 }

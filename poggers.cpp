@@ -4,7 +4,6 @@ TODO
 - shaders
 - camera
 - amp.h to exploit gpu
-- unproject https://dondi.lmu.build/share/cg/unproject-explained.pdf
 - gif encoder
 - mysterious division by zero
 */
@@ -315,7 +314,7 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
     q = Project(mouseX, mouseY);
 
     vec3f n = CrossProduct(p, q);
-    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos((p * q) / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);
 

@@ -178,6 +178,7 @@ namespace mygl
         else return a[index];
     }
 
+    /* TODO division by zero? */
     template<typename T, size_t N>
     Vector<T, N> Vector<T, N>::Unit() const
     {

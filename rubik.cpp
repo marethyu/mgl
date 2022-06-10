@@ -427,7 +427,7 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
     q = Project(mouseX, mouseY);
 
     vec3f n = CrossProduct(p, q);
-    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos((p * q) / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);
 
@@ -463,7 +463,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     q = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[mouseY * width + mouseX], 1.0f)).Demote();
     std::cerr << "p=" << p << ", q=" << q << std::endl;
 
-    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos((p * q) / (p.Magnitude() * q.Magnitude()));
 
     //debug
     vec3f drag = q - p;
