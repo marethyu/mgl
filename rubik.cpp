@@ -1,8 +1,4 @@
 /* g++ rubik.cpp -o rubik -std=c++14 -lSDL2 */
-/*
-TODO:
-- Isn't it wasteful to update every millisecond?
-*/
 
 #include <array>
 #include <algorithm>
@@ -17,8 +13,6 @@ TODO:
 // these header files must be placed after mygl.h for technical reasons
 #include <Windows.h>
 #include <Windowsx.h>
-
-#define ID_TIMER 1
 
 using namespace mygl;
 
@@ -100,14 +94,14 @@ public:
     Rubik(int width, int height);
     ~Rubik();
 
-    void Create(HWND hwnd, int updateInterval);
+    void Create(HWND hwnd);
     void Show();
     void CleanUp();
     void Destroy();
 
     void Init();
-    void Update();
     void Render();
+    void Update();
 
     void PutPixel(int x, int y, float depth, uint32_t argb) override;
 
@@ -165,7 +159,7 @@ Rubik::Rubik(int width, int height)
 Rubik::~Rubik()
 {}
 
-void Rubik::Create(HWND hWnd, int updateInterval)
+void Rubik::Create(HWND hWnd)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
@@ -192,12 +186,6 @@ void Rubik::Create(HWND hWnd, int updateInterval)
     {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
         std::exit(1);
-    }
-
-    if(!SetTimer(hWnd, ID_TIMER, updateInterval, NULL))
-    {
-        MessageBox(hWnd, "Could not set timer!", "errYor", MB_OK | MB_ICONEXCLAMATION);
-        PostQuitMessage(1);
     }
 
     hwnd = hWnd;
@@ -227,7 +215,6 @@ void Rubik::CleanUp()
     wnd = NULL;
 
     SDL_Quit();
-    KillTimer(hwnd, ID_TIMER);
 }
 
 void Rubik::Destroy()
@@ -337,9 +324,6 @@ void Rubik::Init()
     unprojm = modelmi * trans_projmi;
 }
 
-void Rubik::Update()
-{}
-
 void Rubik::Render()
 {
     std::fill(mask.begin(), mask.end(), -1); // important!
@@ -411,6 +395,9 @@ void Rubik::Render()
     o = vpTransf * o;
     DrawLineDDA(o.Demote(), n.Demote(), RED);
 }
+
+void Rubik::Update()
+{}
 
 void Rubik::PutPixel(int x, int y, float depth, uint32_t argb)
 {
@@ -534,13 +521,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        app.Create(hWnd, 0);
-        break;
-    }
-    case WM_TIMER:
-    {
-        app.Update();
-        InvalidateRect(hWnd, NULL, FALSE);
+        app.Create(hWnd);
         break;
     }
     case WM_PAINT:
@@ -578,6 +559,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         app.HandleRightMouseButtonPress(mouseX, mouseY);
         bMousePressed = true;
 
+        InvalidateRect(hWnd, NULL, FALSE);
+
         break;
     }
     case WM_RBUTTONUP:
@@ -598,10 +581,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if ((wParam & MK_LBUTTON) != 0 && bMousePressed) // the left mouse button is pressed
         {
             app.HandleMouseMotion(mouseX, mouseY);
+            InvalidateRect(hWnd, NULL, FALSE);
         }
         else if ((wParam & MK_RBUTTON) != 0 && bMousePressed)
         {
             app.HandleMouseMotionR(mouseX, mouseY);
+            InvalidateRect(hWnd, NULL, FALSE);
         }
         break;
     }
