@@ -131,6 +131,7 @@ private:
     int cur_face;
     int flagged_index;
     int flagged_face;
+    bool on_cube;
 
     // position on screen corresponds to which cubie and which face?
     // each element is 8 bit unsigned where higher nibble represents face number and lower nibble represents cube index (for cubie array)
@@ -147,6 +148,7 @@ private:
     mat4f trans, modelm, projm;
     mat4f vpTransf;
 
+    mat4f modelmi, trans_projmi;
     // to unproject screen coordinates (x, y, depth), use unprojm*vec4f(x, y, 1/depth, 1.0f)
     // warning: it might not work if perspective projection is used...
     mat4f unprojm;
@@ -306,6 +308,7 @@ void Rubik::Init()
 
     flagged_index = -1;
     flagged_face = -1;
+    on_cube = false;
 
     //debug
     normal = vec4f(0.0f, 50.0f, 0.0f, 1.0f);
@@ -328,9 +331,10 @@ void Rubik::Init()
 
     mat4f vpTransfi = Inverse4<float>(vpTransf);
     mat4f projmi = Inverse4<float>(projm);
-    mat4f modelmi = Inverse4<float>(modelm);
 
-    unprojm = modelmi * projmi * vpTransfi;
+    trans_projmi = projmi * vpTransfi;
+    modelmi = Inverse4<float>(modelm);
+    unprojm = modelmi * trans_projmi;
 }
 
 void Rubik::Update()
@@ -439,6 +443,8 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
 
     mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ);
     modelm = trans * rot;
+    modelmi = Inverse4<float>(modelm);
+    unprojm = modelmi * trans_projmi;
 }
 
 void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
@@ -448,10 +454,15 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
     flagged_index = mask[offset] & 0b1111;
     flagged_face = mask[offset] >> 4;
 
+    if ((flagged_index >= 0 && flagged_index < 8) &&
+        (flagged_face >= 0 && flagged_face < 6))
+        on_cube = true;
+
     // prevent clicking on interiors
     if (rubik_cube[flagged_index].col[flagged_face].argb == BLACK.argb)
     {
         flagged_index = flagged_index = -1;
+        on_cube = false;
     }
 
     p = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[offset], 1.0f)).Demote();
@@ -459,12 +470,15 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 {
-    
+    on_cube = false;
 }
 
 void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 {
+    if (!on_cube) return;
+
     q = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[mouseY * width + mouseX], 1.0f)).Demote();
+    std::cerr << "p=" << p << ", q=" << q << std::endl;
 
     float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
 
@@ -490,7 +504,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).Unit();
     vec3f n = CrossProduct(surface_normal, drag);
     normal = vec4f(n[0] * 80.0f, n[1] * 80.0f, n[2] * 80.0f, 1.0f);
-    std::cerr << "drag=" << drag << ", normal=" << normal << std::endl;
+    std::cerr << "drag=" << drag << ", n=" << n << std::endl;
 }
 
 vec3f Rubik::Project(int mx, int my)
@@ -647,7 +661,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     rcClient.right = SCREEN_WIDTH * SCREEN_SCALE_FACTOR;
     rcClient.bottom = SCREEN_HEIGHT * SCREEN_SCALE_FACTOR;
 
-    AdjustWindowRectEx(&rcClient, style, TRUE, 0);
+    AdjustWindowRectEx(&rcClient, style, FALSE, 0); // change the third parameter to TRUE if you plan to add menubar
 
     hWnd = CreateWindow(szClassName,
         TEXT("Rubik's Cube"),
@@ -663,7 +677,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (hWnd == NULL)
     {
-        MessageBox(NULL, TEXT("Window Creation Failed!"), TEXT("errYor!"),
+        MessageBox(NULL, TEXT("Window Creation Failed!"), TEXT("error!"),
             MB_ICONEXCLAMATION | MB_OK);
         return 0;
     }
