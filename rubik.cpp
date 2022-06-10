@@ -354,6 +354,11 @@ void Rubik::Render()
         {
             cur_face = i / 2;
 
+            Colour col = rubik_cube[cur_idx].col[cur_face];
+
+            // optimization: don't render if the colour matches the background
+            if (col.argb == BLACK.argb) continue;
+
             Triangle t = cube.triangle[i];
 
             vec4f v1 = modelm * rubik_cube[idx].position * cube.vertex[t.vertex[0]];
@@ -385,8 +390,6 @@ void Rubik::Render()
                 v1 = vpTransf * v1;
                 v2 = vpTransf * v2;
                 v3 = vpTransf * v3;
-
-                Colour col = rubik_cube[cur_idx].col[cur_face];
 
                 if (cur_idx == flagged_index && cur_face == flagged_face)
                 {
@@ -457,13 +460,6 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
     if ((flagged_index >= 0 && flagged_index < 8) &&
         (flagged_face >= 0 && flagged_face < 6))
         on_cube = true;
-
-    // prevent clicking on interiors
-    if (rubik_cube[flagged_index].col[flagged_face].argb == BLACK.argb)
-    {
-        flagged_index = flagged_index = -1;
-        on_cube = false;
-    }
 
     p = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[offset], 1.0f)).Demote();
 }
