@@ -28,7 +28,6 @@ struct Cubie
 
 /*
 Cube
-
     +6-------+5
    /         /|
  +7--------+8 |
@@ -36,7 +35,6 @@ Cube
   | +1      |+4
   |         |/
  +2--------+3
-
 */
 
 const Model cube = {
@@ -453,6 +451,7 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 {
+    flagged_index = flagged_face = -1;
     on_cube = false;
 }
 
@@ -570,6 +569,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         app.HandleRightMouseButtonRelease(mouseX, mouseY);
         bMousePressed = false;
+
+        InvalidateRect(hWnd, NULL, FALSE);
 
         break;
     }
