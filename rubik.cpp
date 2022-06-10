@@ -328,6 +328,20 @@ void Rubik::Render()
 
     int trigs = cube.ntrig;
 
+    vec4f vertexes[8][trigs][3]; // preprocessed list of vertexes
+
+    for (int idx = 0; idx < 8; ++idx)
+    {
+        for (int i = 0; i < trigs; ++i)
+        {
+            Triangle t = cube.triangle[i];
+
+            vertexes[idx][i][0] = rubik_cube[idx].position * cube.vertex[t.vertex[0]];
+            vertexes[idx][i][1] = rubik_cube[idx].position * cube.vertex[t.vertex[1]];
+            vertexes[idx][i][2] = rubik_cube[idx].position * cube.vertex[t.vertex[2]];
+        }
+    }
+
     for (int idx = 0; idx < 8; ++idx)
     {
         cur_idx = idx;
@@ -343,9 +357,9 @@ void Rubik::Render()
 
             Triangle t = cube.triangle[i];
 
-            vec4f v1 = modelm * rubik_cube[idx].position * cube.vertex[t.vertex[0]];
-            vec4f v2 = modelm * rubik_cube[idx].position * cube.vertex[t.vertex[1]];
-            vec4f v3 = modelm * rubik_cube[idx].position * cube.vertex[t.vertex[2]];
+            vec4f v1 = modelm * vertexes[idx][i][0];
+            vec4f v2 = modelm * vertexes[idx][i][1];
+            vec4f v3 = modelm * vertexes[idx][i][2];
 
             vec3f vert1 = v1.Demote();
             vec3f vert2 = v2.Demote();
