@@ -364,7 +364,7 @@ void Rubik::Render()
             vec3f n = CrossProduct(vert3 - vert1, vert2 - vert1).Unit();
 
             // luminance
-            float L = n.Dot(light);
+            float L = n * light;
 
             // L <= 0 means the triangle is hidden from the view
             if (L > 0.0f)
@@ -433,7 +433,7 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
     q = Project(mouseX, mouseY);
 
     vec3f n = CrossProduct(p, q);
-    float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);
 
@@ -466,7 +466,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 {
     q = (unprojm * vec4f(mouseX, mouseY, 1.0f / zdepth[mouseY * width + mouseX], 1.0f)).Demote();
 
-    float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
 
     //debug
     vec3f drag = q - p;

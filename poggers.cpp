@@ -260,7 +260,7 @@ void Poggers::Render()
         vec3f n = CrossProduct(vert3 - vert1, vert2 - vert1).Unit();
 
         // luminance
-        float L = n.Dot(light);
+        float L = n * light;
 
         //debug
         //std::cerr << "Triangle #" << i << ": n=" << n << ", light=" << light << ", Luminance=" << L << std::endl;
@@ -315,7 +315,7 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
     q = Project(mouseX, mouseY);
 
     vec3f n = CrossProduct(p, q);
-    float theta = std::acos(p.Dot(q) / (p.Magnitude() * q.Magnitude()));
+    float theta = std::acos(p * q / (p.Magnitude() * q.Magnitude()));
 
     currentQ = Quaternion<float>(n, theta);
 

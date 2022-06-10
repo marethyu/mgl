@@ -2,6 +2,8 @@
 
 #include "linalg.h"
 
+using namespace mygl;
+
 int main()
 {
     vec3i z;
@@ -41,7 +43,7 @@ int main()
     auto b2 = vec3f(3.0f, 4.0f, 5.0f);
     std::cout << "b2.Unit() = " << b2.Unit() << '\n';
 
-    std::cout << "[4, 8, 10] . [9, 2, 7] = " << vec3i({4, 8, 10}).Dot(vec3i({9, 2, 7})) << '\n';
+    std::cout << "[4, 8, 10] . [9, 2, 7] = " << vec3i({4, 8, 10}) * vec3i({9, 2, 7}) << '\n';
 
     std::cout << "[1, 0, 0] x [0, 1, 0] = " << CrossProduct(vec3i({1, 0, 0}), vec3i({0, 1, 0})) << '\n';
     std::cout << "[2, 3, 4] x [5, 6, 7] = " << CrossProduct(vec3i({2, 3, 4}), vec3i({5, 6, 7})) << '\n';

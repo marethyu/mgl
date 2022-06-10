@@ -40,6 +40,7 @@ namespace mygl
         Vector& operator+=(const Vector& v);
         Vector& operator-=(const Vector& v);
         Vector& operator*=(T s);
+        T operator*=(const Vector& v) const;
         Vector& operator/=(T s);
 
         T operator[](int index) const;
@@ -47,7 +48,6 @@ namespace mygl
 
         Vector Unit() const;
 
-        T Dot(const Vector& v) const;
         T Magnitude() const;
 
         // Find the component (or scalar projection) of this vector onto v (ie. comp_v this)
@@ -136,6 +136,19 @@ namespace mygl
     }
 
     template<typename T, size_t N>
+    T Vector<T, N>::operator*=(const Vector<T, N>& v) const
+    {
+        T total = 0;
+
+        for (int i = 0; i < N; ++i)
+        {
+            total += a[i] * v[i];
+        }
+
+        return total;
+    }
+
+    template<typename T, size_t N>
     Vector<T, N>& Vector<T, N>::operator/=(T s)
     {
         if (IsEqual<T>(s, 0))
@@ -172,28 +185,15 @@ namespace mygl
     }
 
     template<typename T, size_t N>
-    T Vector<T, N>::Dot(const Vector<T, N>& v) const
-    {
-        T total = 0;
-
-        for (int i = 0; i < N; ++i)
-        {
-            total += a[i] * v[i];
-        }
-
-        return total;
-    }
-
-    template<typename T, size_t N>
     T Vector<T, N>::Magnitude() const
     {
-        return std::sqrt(Dot(*this));
+        return std::sqrt(*this * *this);
     }
 
     template<typename T, size_t N>
     T Vector<T, N>::Component(const Vector<T, N>& v) const
     {
-        return Dot(v) / v.Magnitude();
+        return *this * v / v.Magnitude();
     }
 
     template<typename T, size_t N>
@@ -227,6 +227,7 @@ namespace mygl
 
     template<typename T, typename U, size_t N> Vector<T, N> operator*(Vector<T, N> v, U s) { return v *= s; }
     template<typename T, typename U, size_t N> Vector<T, N> operator*(U s, Vector<T, N> v) { return v *= s; }
+    template<typename T, size_t N> T operator*(Vector<T, N> a, Vector<T, N> b) { return a *= b; }
 
     template<typename T, typename U, size_t N> Vector<T, N> operator/(Vector<T, N> v, U s) { return v /= s; }
 
@@ -451,7 +452,7 @@ namespace mygl
 
         for (int i = 0; i < M; ++i)
         {
-            c[i] = vecs_[i].Dot(b);
+            c[i] = vecs_[i] * b;
         }
 
         return c;
@@ -974,7 +975,7 @@ namespace mygl
     template<typename T>
     Quaternion<T>& Quaternion<T>::operator*=(const Quaternion<T>& q)
     {
-        T s = s_ * q.s_ - v_.Dot(q.v_);
+        T s = s_ * q.s_ - v_ * q.v_;
         Vector<T, 3> v = s_ * q.v_ + q.s_ * v_ + CrossProduct(v_, q.v_);
 
         s_ = s;
@@ -1049,7 +1050,7 @@ namespace mygl
     template<typename T>
     T Quaternion<T>::InnerProduct(const Quaternion<T>& q) const
     {
-        return s_ * q.s_ + v_.Dot(q.v_);
+        return s_ * q.s_ + v_ * q.v_;
     }
 
     template<typename T>

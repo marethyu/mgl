@@ -2,6 +2,8 @@
 
 #include "linalg.h"
 
+using namespace mygl;
+
 int main()
 {
     mat3i A = {{1, 2, 1}, {0, 1, 0}, {2, 3, 4}};
