@@ -459,7 +459,7 @@ void Rubik::Render()
             Colour col = rubik_cube[cur_idx].col[cur_face];
 
             // optimization: don't render if the colour matches the background
-            // if (col.argb == BLACK.argb) continue;
+            if (col.argb == BLACK.argb) continue;
 
             Triangle t = cube.triangle[i];
 
