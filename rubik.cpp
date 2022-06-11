@@ -2,7 +2,8 @@
 /*
 TODO
 - super interactive cube control
-- numerical error accumulation when dealing with floating point values
+- numerical error accumulation when dealing with floating point values (how about creating a new translation matrix after rotation instead of multiplying the old one with rotation matrix?)
+- reimplement arcball using unproject matrix (no projection to sphere)
 */
 
 #include <array>
@@ -214,6 +215,7 @@ private:
     vec3f Unproject(int mx, int my);
 
     void RotateSwap();
+    void SwapCubies(Cubie* pC1, Cubie* pC2);
 };
 
 Rubik::Rubik(int width, int height)
@@ -446,7 +448,7 @@ void Rubik::Render()
             Colour col = rubik_cube[cur_idx].col[cur_face];
 
             // optimization: don't render if the colour matches the background
-            if (col.argb == BLACK.argb) continue;
+            // if (col.argb == BLACK.argb) continue;
 
             Triangle t = cube.triangle[i];
 
@@ -590,7 +592,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 
     vec3f drag = q - p; // drag vector
 
-    if (drag.Magnitude() < 1e-3) return;
+    if (drag.Magnitude() < 1e-1) return;
 /*
     drag = drag.LargestComponentOnly().Unit();
 
@@ -670,6 +672,8 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 
     group = group_index[which][flagged_index];
 
+    std::cerr << "which=" << which << ", orien=" << orien << ", group=" << group << std::endl;
+
     axis = n;
     angle = 0.0f;
 
@@ -735,8 +739,12 @@ void Rubik::RotateSwap()
     int k = rotation_group[group][2];
     int l = rotation_group[group][3];
 
-    if (orien % 2 == 0)
+    // BUG HERE TODO FIX
+    // cubies from top leftmost corner to bottom right most corner must be indexed 0-7
+
+    if (/*orien % 2 == 0*/ true)
     {
+
         Cubie tmp1 = rubik_cube[i];
         Cubie tmp2 = rubik_cube[k];
 
@@ -744,9 +752,14 @@ void Rubik::RotateSwap()
         rubik_cube[j] = rubik_cube[l];
         rubik_cube[k] = tmp1;
         rubik_cube[l] = tmp2;
+
+        //SwapCubies(&rubik_cube[i], &rubik_cube[j]);
+        //SwapCubies(&rubik_cube[k], &rubik_cube[l]);
+        //SwapCubies(&rubik_cube[j], &rubik_cube[k]);
     }
     else
     {
+
         Cubie tmp1 = rubik_cube[i];
         Cubie tmp2 = rubik_cube[j];
 
@@ -754,6 +767,10 @@ void Rubik::RotateSwap()
         rubik_cube[j] = tmp1;
         rubik_cube[k] = rubik_cube[l];
         rubik_cube[l] = tmp2;
+
+        //SwapCubies(&rubik_cube[i], &rubik_cube[k]);
+        //SwapCubies(&rubik_cube[j], &rubik_cube[l]);
+        //SwapCubies(&rubik_cube[j], &rubik_cube[k]);
     }
 
     mat4f rotate;
@@ -773,6 +790,13 @@ void Rubik::RotateSwap()
     rubik_cube[j].position = rotate * rubik_cube[j].position;
     rubik_cube[k].position = rotate * rubik_cube[k].position;
     rubik_cube[l].position = rotate * rubik_cube[l].position;
+}
+
+void Rubik::SwapCubies(Cubie* pC1, Cubie* pC2)
+{
+    Cubie* pTmp = pC1;
+    pC1 = pC2;
+    pC2 = pTmp;
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
