@@ -84,9 +84,6 @@ const vec3f xaxis = {1, 0, 0};
 const vec3f yaxis = {0, 1, 0};
 const vec3f zaxis = {0, 0, 1};
 
-/* map s from [a1...a2] to [b1...b2] */
-inline float map(float s, float a1, float a2, float b1, float b2) { return b1 + (s - a1) * (b2 - b1) / (a2 - a1); }
-
 class Poggers : public RendererBase3D
 {
 public:
@@ -118,12 +115,17 @@ private:
     vec3f light; // direction of light source (from model's pov)
 
     vec3f p, q;
+
     Quaternion<float> currentQ, lastQ;
     Quaternion<float> rotatey;
+
     mat4f trans, modelm, projm;
     mat4f vpTransf;
 
-    vec3f Project(int mx, int my);
+    float xscale;
+    float yscale;
+
+    vec3f ProjectToSphere(int mx, int my);
 };
 
 Poggers::Poggers(int width, int height)
@@ -224,16 +226,19 @@ void Poggers::Init()
     mat4f vpTranslate = CreateTranslationMatrix4<float>(width / 2.0f, height / 2.0f, width / 2.0f + 0.5f); // +0.5 to make sure that z > 0
 
     vpTransf = vpTranslate * vpScale;
+
+    xscale = 2.0f / (width - 1.0f);
+    yscale = 2.0f / (height - 1.0f);
 }
 
 void Poggers::Update()
-{
+{/*
     angle += dAngle;
 
     rotatey = Quaternion<float>(yaxis, angle);
     mat4f rot = CreateRotationMatrix4<float>(currentQ * lastQ * rotatey);
 
-    modelm = trans * rot;
+    modelm = trans * rot;*/
 }
 
 void Poggers::Render()
@@ -300,7 +305,7 @@ void Poggers::Render()
 
 void Poggers::HandleMousePress(int mouseX, int mouseY)
 {
-    p = Project(mouseX, mouseY);
+    p = ProjectToSphere(mouseX, mouseY);
 }
 
 void Poggers::HandleMouseRelease(int mouseX, int mouseY)
@@ -311,7 +316,7 @@ void Poggers::HandleMouseRelease(int mouseX, int mouseY)
 
 void Poggers::HandleMouseMotion(int mouseX, int mouseY)
 {
-    q = Project(mouseX, mouseY);
+    q = ProjectToSphere(mouseX, mouseY);
 
     vec3f n = CrossProduct(p, q);
     float theta = std::acos((p * q) / (p.Magnitude() * q.Magnitude()));
@@ -322,21 +327,24 @@ void Poggers::HandleMouseMotion(int mouseX, int mouseY)
     modelm = trans * rot;
 }
 
-vec3f Poggers::Project(int mx, int my)
+vec3f Poggers::ProjectToSphere(int mx, int my)
 {
     const float r = 1.0f;
 
-    float x = map(mx, 0, width - 1, -1, 1);
-    float y = map(my, 0, height - 1, 1, -1);
+    /* x and y are mapped to [-1, 1] */
+    float x = (mx * xscale) - 1.0f;
+    float y = 1.0f - (my * yscale);
     float z;
 
-    if (x * x + y * y <= r * r / 2.0f)
+    float length2 = x * x + y * y;
+
+    if (length2 <= r * r / 2.0f) // inside the sphere
     {
-        z = std::sqrt(r - x * x - y * y);
+        z = std::sqrt(r * r - length2);
     }
     else
     {
-        z = (r * r / 2.0f) / std::sqrt(x * x + y * y);
+        z = (r * r / 2.0f) / std::sqrt(length2);
     }
 
     return vec3f(x, y, z);

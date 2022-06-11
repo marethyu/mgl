@@ -151,7 +151,7 @@ vec3d project(int mx, int my)
 
     if (x * x + y * y <= r * r / 2.0)
     {
-        z = std::sqrt(r - x * x - y * y);
+        z = std::sqrt(r * r - x * x - y * y);
     }
     else
     {
