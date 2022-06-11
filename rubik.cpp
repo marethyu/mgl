@@ -2,7 +2,7 @@
 /*
 TODO
 - super interactive cube control
-- numerical error accumulation when dealing with floating point values (how about creating a new translation matrix after rotation instead of multiplying the old one with rotation matrix?)
+- numerical error accumulation when dealing with floating point values
 - reimplement arcball using unproject matrix (no projection to sphere)
 */
 
@@ -93,7 +93,6 @@ const vec3f zaxis = {0, 0, 1};
 
 /*
 Cubie array indexes for 2x2 cube
-
     +0-------+1
    /         /|
  +2--------+3 |
@@ -101,7 +100,6 @@ Cubie array indexes for 2x2 cube
   | +4      |+5
   |         |/
  +6--------+7
-
 */
 
 const int rotation_group[6][4] = {
@@ -595,19 +593,14 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     if (drag.Magnitude() < 1e-1) return;
 /*
     drag = drag.LargestComponentOnly().Unit();
-
     std::cerr << "p=" << p << ", q=" << q << ", drag=" << drag << std::endl;
-
     Triangle t = cube.triangle[flagged_face * 2];
-
     vec4f v1 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[0]];
     vec4f v2 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[1]];
     vec4f v3 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[2]];
-
     vec3f vert1 = v1.Demote();
     vec3f vert2 = v2.Demote();
     vec3f vert3 = v3.Demote();
-
     vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).LargestComponentOnly().Unit(); // normal to the triangle's surface
 */
     float x = std::fabs(drag[0]);
@@ -717,9 +710,7 @@ vec3f Rubik::Unproject(int mx, int my)
     float x = v[0];
     float y = v[1];
     float z;
-
     float length2 = x * x + y * y;
-
     if (length2 <= r * r / 2.0f) // inside the sphere
     {
         z = std::sqrt(r * r - length2);
@@ -739,11 +730,16 @@ void Rubik::RotateSwap()
     int k = rotation_group[group][2];
     int l = rotation_group[group][3];
 
-    // BUG HERE TODO FIX
-    // cubies from top leftmost corner to bottom right most corner must be indexed 0-7
+    // cubies from top leftmost corner to bottom right most corner must be indexed 0-7 after swapping
+    // remember top to bottom, left to right and front to back
 
-    if (/*orien % 2 == 0*/ true)
+    switch (orien)
     {
+    case N_X_AXIS:
+    case Y_AXIS:
+    case Z_AXIS:
+    {
+        std::cerr << "ccw" << std::endl;
 
         Cubie tmp1 = rubik_cube[i];
         Cubie tmp2 = rubik_cube[k];
@@ -753,12 +749,13 @@ void Rubik::RotateSwap()
         rubik_cube[k] = tmp1;
         rubik_cube[l] = tmp2;
 
-        //SwapCubies(&rubik_cube[i], &rubik_cube[j]);
-        //SwapCubies(&rubik_cube[k], &rubik_cube[l]);
-        //SwapCubies(&rubik_cube[j], &rubik_cube[k]);
+        break;
     }
-    else
+    case X_AXIS:
+    case N_Y_AXIS:
+    case N_Z_AXIS:
     {
+        std::cerr << "cw" << std::endl;
 
         Cubie tmp1 = rubik_cube[i];
         Cubie tmp2 = rubik_cube[j];
@@ -768,9 +765,8 @@ void Rubik::RotateSwap()
         rubik_cube[k] = rubik_cube[l];
         rubik_cube[l] = tmp2;
 
-        //SwapCubies(&rubik_cube[i], &rubik_cube[k]);
-        //SwapCubies(&rubik_cube[j], &rubik_cube[l]);
-        //SwapCubies(&rubik_cube[j], &rubik_cube[k]);
+        break;
+    }
     }
 
     mat4f rotate;
