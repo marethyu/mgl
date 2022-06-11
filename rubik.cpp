@@ -1,10 +1,16 @@
 /* g++ rubik.cpp -o rubik -std=c++14 -lSDL2 */
 /*
 TODO
+- refactor shit
 - reimplement arcball using unproject matrix (no projection to sphere)
 - bitmask to represent colour array
 - super interactive cube control (ie. improve mouse interaction)
 - numerical error accumulation when dealing with floating point values
+- texture mapping (put rubik cube logo on one of the faces)
+- 3x3 version
+- port to javascript or something?
+- basic solver
+- and more
 */
 
 #include <array>
