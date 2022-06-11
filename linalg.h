@@ -49,6 +49,7 @@ namespace mygl
         T& operator[](int index);
 
         Vector Unit() const;
+        Vector LargestComponentOnly() const; // Removes smaller components
 
         T Magnitude() const;
 
@@ -200,6 +201,30 @@ namespace mygl
     Vector<T, N> Vector<T, N>::Unit() const
     {
         return *this / Magnitude();
+    }
+
+    template<typename T, size_t N>
+    Vector<T, N> Vector<T, N>::LargestComponentOnly() const
+    {
+        Vector<T, N> v;
+
+        T largest = -1;
+        int idx = 0;
+
+        for (int i = 0; i < N; ++i)
+        {
+            T elm = std::abs(a[i]);
+
+            if (largest < elm)
+            {
+                largest = elm;
+                idx = i;
+            }
+        }
+
+        v[idx] = a[idx];
+
+        return *this;
     }
 
     template<typename T, size_t N>
