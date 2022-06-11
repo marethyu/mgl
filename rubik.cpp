@@ -641,6 +641,8 @@ void Rubik::HandleMouseMotion(int mouseX, int mouseY)
 
 void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 {
+    if (mouselock) return;
+
     int offset = mouseY * width + mouseX;
 
     flagged_index = mask[offset] & 0b1111;
@@ -657,6 +659,8 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
 
 void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 {
+    if (mouselock) return;
+
     flagged_index = flagged_face = -1;
     on_cube = false;
 }
