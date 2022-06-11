@@ -1,5 +1,9 @@
 /* g++ rubik.cpp -o rubik -std=c++14 -lSDL2 */
-/* TODO super interactive cube control */
+/*
+TODO
+- super interactive cube control
+- numerical error accumulation when dealing with floating point values
+*/
 
 #include <array>
 #include <algorithm>
@@ -125,6 +129,16 @@ const int group_index[3][8] = {
     {3, 3, 2, 2, 3, 3, 2, 2},
 };
 
+/* normal vector directions */
+enum {
+    X_AXIS=0,
+    N_X_AXIS,
+    Y_AXIS,
+    N_Y_AXIS,
+    Z_AXIS,
+    N_Z_AXIS
+};
+
 class Rubik : public RendererBase3D
 {
 public:
@@ -174,13 +188,13 @@ private:
     vec3f light; // direction of light source (from model's pov)
 
     bool rotating;
-    bool ccw;
     bool mouselock;
     float angle;
     float da;
     vec3f axis;
     int which; // 0-left/right; 1-top/bottom; 2-front/back
     int group;
+    int orien;
 
     vec3f p, q;
     Quaternion<float> currentQ, lastQ;
@@ -199,7 +213,7 @@ private:
     vec3f ProjectToSphere(int mx, int my);
     vec3f Unproject(int mx, int my);
 
-    void RotateSwap(int group, bool ccw);
+    void RotateSwap();
 };
 
 Rubik::Rubik(int width, int height)
@@ -498,7 +512,7 @@ void Rubik::Update()
         rotating = false;
         mouselock = false;
 
-        RotateSwap(group, ccw); // change cubie positions in array
+        RotateSwap();
     }
 }
 
@@ -557,6 +571,8 @@ void Rubik::HandleRightMouseButtonPress(int mouseX, int mouseY)
         (flagged_face >= 0 && flagged_face < 6))
         on_cube = true;
 
+    std::cerr << "index=" << flagged_index << ", face=" << flagged_face << std::endl;
+
     p = Unproject(mouseX, mouseY);
 }
 
@@ -568,14 +584,30 @@ void Rubik::HandleRightMouseButtonRelease(int mouseX, int mouseY)
 
 void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 {
-    if (!on_cube) return;
+    if (!on_cube || mouselock) return;
 
     q = Unproject(mouseX, mouseY);
 
     vec3f drag = q - p; // drag vector
 
+    if (drag.Magnitude() < 1e-3) return;
+/*
+    drag = drag.LargestComponentOnly().Unit();
+
     std::cerr << "p=" << p << ", q=" << q << ", drag=" << drag << std::endl;
 
+    Triangle t = cube.triangle[flagged_face * 2];
+
+    vec4f v1 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[0]];
+    vec4f v2 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[1]];
+    vec4f v3 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[2]];
+
+    vec3f vert1 = v1.Demote();
+    vec3f vert2 = v2.Demote();
+    vec3f vert3 = v3.Demote();
+
+    vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).LargestComponentOnly().Unit(); // normal to the triangle's surface
+*/
     float x = std::fabs(drag[0]);
     float y = std::fabs(drag[1]);
     float z = std::fabs(drag[2]);
@@ -591,6 +623,8 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 
     drag = drag.Unit();
 
+    std::cerr << "p=" << p << ", q=" << q << ", drag=" << drag << std::endl;
+
     Triangle t = cube.triangle[flagged_face * 2];
 
     vec4f v1 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[0]];
@@ -603,9 +637,21 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 
     vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).Unit(); // normal to the triangle's surface
 
+    x = std::fabs(surface_normal[0]);
+    y = std::fabs(surface_normal[1]);
+    z = std::fabs(surface_normal[2]);
+
+    // x is the largest
+    if (x > y && x > z) surface_normal[1] = surface_normal[2] = 0.0f;
+
+    // y is the largest
+    else if (y > x && y > z) surface_normal[0] = surface_normal[2] = 0.0f;
+
+    // z is the largest
+    else surface_normal[0] = surface_normal[1] = 0.0f;
+
     std::cerr << "surface_n=" << surface_normal << std::endl;
 
-    // TODO sometimes the normal vector is not parallel to axis, why? sometimes return zero, also why?!??
     vec3f n = CrossProduct(surface_normal, drag); // normal vector for rotation
 
     std::cerr << "n=" << n << std::endl;
@@ -615,12 +661,12 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     rotating = true;
     mouselock = true;
 
-         if (n == xaxis)  { which = 0; ccw = true; }
-    else if (n == -xaxis) { which = 0; ccw = false; }
-    else if (n == yaxis)  { which = 1; ccw = true; }
-    else if (n == -yaxis) { which = 1; ccw = false; }
-    else if (n == zaxis)  { which = 2; ccw = true; }
-    else if (n == -zaxis) { which = 2; ccw = false; }
+         if (n == xaxis)  { which = 0; orien = X_AXIS; }
+    else if (n == -xaxis) { which = 0; orien = N_X_AXIS; }
+    else if (n == yaxis)  { which = 1; orien = Y_AXIS; }
+    else if (n == -yaxis) { which = 1; orien = N_Y_AXIS; }
+    else if (n == zaxis)  { which = 2; orien = Z_AXIS; }
+    else if (n == -zaxis) { which = 2; orien = N_Z_AXIS; }
 
     group = group_index[which][flagged_index];
 
@@ -682,16 +728,14 @@ vec3f Rubik::Unproject(int mx, int my)
     return v;
 }
 
-void Rubik::RotateSwap(int group, bool ccw)
+void Rubik::RotateSwap()
 {
     int i = rotation_group[group][0];
     int j = rotation_group[group][1];
     int k = rotation_group[group][2];
     int l = rotation_group[group][3];
 
-    mat4f rotate = CreateRotationMatrix4<float>(Quaternion<float>(axis, M_PI_2));
-
-    if (ccw)
+    if (orien % 2 == 0)
     {
         Cubie tmp1 = rubik_cube[i];
         Cubie tmp2 = rubik_cube[k];
@@ -712,12 +756,23 @@ void Rubik::RotateSwap(int group, bool ccw)
         rubik_cube[l] = tmp2;
     }
 
-    // finally apply rotation to each cubie position
-    for (int j = 0; j < 4; ++j)
+    mat4f rotate;
+
+    switch (orien)
     {
-        int idx = rotation_group[group][j]; // cubie index
-        rubik_cube[idx].position = rotate * rubik_cube[idx].position;
+    case X_AXIS:   rotate = CreateRotationXMatrix4<float>(M_PI_2);  break;
+    case N_X_AXIS: rotate = CreateRotationXMatrix4<float>(-M_PI_2); break;
+    case Y_AXIS:   rotate = CreateRotationYMatrix4<float>(M_PI_2);  break;
+    case N_Y_AXIS: rotate = CreateRotationYMatrix4<float>(-M_PI_2); break;
+    case Z_AXIS:   rotate = CreateRotationZMatrix4<float>(M_PI_2);  break;
+    case N_Z_AXIS: rotate = CreateRotationZMatrix4<float>(-M_PI_2); break;
     }
+
+    // finally apply rotation to each cubie position
+    rubik_cube[i].position = rotate * rubik_cube[i].position;
+    rubik_cube[j].position = rotate * rubik_cube[j].position;
+    rubik_cube[k].position = rotate * rubik_cube[k].position;
+    rubik_cube[l].position = rotate * rubik_cube[l].position;
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
