@@ -89,7 +89,7 @@ namespace mygl
     const Colour BLACK(0, 0, 0, 255);
     const Colour WHITE(255, 255, 255, 255);
 
-    const float ZMIN = std::numeric_limits<float>::lowest();
+    const float ZMIN = 1e-9; // cannot be less than zero
 
     // Platform indepentent base class for programs that use 3D graphics
     class RendererBase3D
