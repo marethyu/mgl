@@ -872,7 +872,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static Rubik app(SCREEN_WIDTH, SCREEN_HEIGHT);
     static bool bMousePressed = false;
-    static bool bLeftButton = false;
+
     int mouseX, mouseY;
 
     switch (msg)
@@ -908,7 +908,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         app.HandleMousePress(mouseX, mouseY);
         bMousePressed = true;
-        bLeftButton = true;
 
         break;
     }
@@ -919,7 +918,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         app.HandleMouseRelease(mouseX, mouseY);
         bMousePressed = false;
-        bLeftButton = false;
 
         break;
     }
