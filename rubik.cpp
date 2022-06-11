@@ -1,13 +1,17 @@
 /* g++ rubik.cpp -o rubik -std=c++14 -lSDL2 */
 /*
 TODO
-- super interactive cube control
-- numerical error accumulation when dealing with floating point values
 - reimplement arcball using unproject matrix (no projection to sphere)
+- bitmask to represent colour array
+- super interactive cube control (ie. improve mouse interaction)
+- numerical error accumulation when dealing with floating point values
 */
 
 #include <array>
 #include <algorithm>
+
+#include <cstdlib>
+#include <ctime>
 
 //debug
 #include <iostream>
@@ -155,6 +159,8 @@ public:
 
     void PutPixel(int x, int y, float depth, uint32_t argb) override;
 
+    void StartScramble();
+
     void HandleMousePress(int mouseX, int mouseY);
     void HandleMouseRelease(int mouseX, int mouseY);
     void HandleMouseMotion(int mouseX, int mouseY);
@@ -195,6 +201,10 @@ private:
     int group;
     int orien;
 
+    bool scrambling;
+    bool noaxis;
+    int ntimes;
+
     vec3f p, q;
     Quaternion<float> currentQ, lastQ;
 
@@ -209,11 +219,10 @@ private:
     float xscale;
     float yscale;
 
-    vec3f ProjectToSphere(int mx, int my);
-    vec3f Unproject(int mx, int my);
+    vec3f ProjectToSphere(int mouseX, int mouseY);
+    vec3f Unproject(int mouseX, int mouseY);
 
-    void RotateSwap();
-    void SwapCubies(Cubie* pC1, Cubie* pC2);
+    void RotateSwap(int group, int orien);
 };
 
 Rubik::Rubik(int width, int height)
@@ -373,6 +382,8 @@ void Rubik::Init()
     mouselock = false;
     da = 0.1f;
 
+    scrambling = false;
+
     currentQ = Quaternion<float>(true);
     lastQ = Quaternion<float>(true);
 
@@ -395,6 +406,8 @@ void Rubik::Init()
 
     xscale = 2.0f / (width - 1.0f);
     yscale = 2.0f / (height - 1.0f);
+
+    std::srand(static_cast<unsigned>(time(NULL)));
 }
 
 void Rubik::Render()
@@ -503,16 +516,67 @@ void Rubik::Render()
 
 void Rubik::Update()
 {
-    angle += da;
+    bool done = false;
 
-    if (angle >= M_PI_2)
+    if (!scrambling)
+    {
+        angle += da;
+
+        if (angle >= M_PI_2)
+        {
+            RotateSwap(group, orien);
+            done = true;
+        }
+    }
+    else // scrambling
+    {
+        if (ntimes == 0)
+        {
+            done = true;
+        }
+        else
+        {
+            if (noaxis)
+            {
+                orien = std::rand() % 6;
+
+                switch (orien)
+                {
+                case 0: axis = xaxis; break;
+                case 1: axis = -xaxis; break;
+                case 2: axis = yaxis; break;
+                case 3: axis = -yaxis; break;
+                case 4: axis = zaxis; break;
+                case 5: axis = -zaxis; break;
+                }
+                normal = vec4f(axis[0] * 80.0f, axis[1] * 80.0f, axis[2] * 80.0f, 1.0f);
+
+                which = orien / 2;
+                group = group_index[which][std::rand() % 8];
+                angle = 0.0f;
+
+                noaxis = false;
+            }
+            else
+            {
+                angle += da;
+
+                if (angle >= M_PI_2)
+                {
+                    RotateSwap(group, orien);
+                    ntimes--;
+                    noaxis = true;
+                }
+            }
+        }
+    }
+
+    if (done)
     {
         KillTimer(hwnd, ID_TIMER);
-
         rotating = false;
         mouselock = false;
-
-        RotateSwap();
+        scrambling = false;
     }
 }
 
@@ -525,6 +589,21 @@ void Rubik::PutPixel(int x, int y, float depth, uint32_t argb)
         zdepth[offset] = depth;
         pixels[offset] = argb;
         mask[offset] = (cur_face << 4) | cur_idx;
+    }
+}
+
+void Rubik::StartScramble()
+{
+    scrambling = true;
+    noaxis = true;
+    mouselock = true;
+    rotating = true;
+    ntimes = 10;
+
+    if(!SetTimer(hwnd, ID_TIMER, 1, NULL))
+    {
+        MessageBox(hwnd, "Could not set timer!", "errYor", MB_OK | MB_ICONEXCLAMATION);
+        PostQuitMessage(1);
     }
 }
 
@@ -591,18 +670,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     vec3f drag = q - p; // drag vector
 
     if (drag.Magnitude() < 1e-1) return;
-/*
-    drag = drag.LargestComponentOnly().Unit();
-    std::cerr << "p=" << p << ", q=" << q << ", drag=" << drag << std::endl;
-    Triangle t = cube.triangle[flagged_face * 2];
-    vec4f v1 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[0]];
-    vec4f v2 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[1]];
-    vec4f v3 = rubik_cube[flagged_index].position * cube.vertex[t.vertex[2]];
-    vec3f vert1 = v1.Demote();
-    vec3f vert2 = v2.Demote();
-    vec3f vert3 = v3.Demote();
-    vec3f surface_normal = CrossProduct(vert3 - vert1, vert2 - vert1).LargestComponentOnly().Unit(); // normal to the triangle's surface
-*/
+
     float x = std::fabs(drag[0]);
     float y = std::fabs(drag[1]);
     float z = std::fabs(drag[2]);
@@ -647,7 +715,7 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
 
     std::cerr << "surface_n=" << surface_normal << std::endl;
 
-    vec3f n = CrossProduct(surface_normal, drag); // normal vector for rotation
+    vec3f n = CrossProduct(surface_normal, drag); // normal vector for rotation TODO what to do if it is zero?
 
     std::cerr << "n=" << n << std::endl;
 
@@ -656,13 +724,14 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     rotating = true;
     mouselock = true;
 
-         if (n == xaxis)  { which = 0; orien = X_AXIS; }
-    else if (n == -xaxis) { which = 0; orien = N_X_AXIS; }
-    else if (n == yaxis)  { which = 1; orien = Y_AXIS; }
-    else if (n == -yaxis) { which = 1; orien = N_Y_AXIS; }
-    else if (n == zaxis)  { which = 2; orien = Z_AXIS; }
-    else if (n == -zaxis) { which = 2; orien = N_Z_AXIS; }
+         if (n == xaxis)  { orien = X_AXIS;   }
+    else if (n == -xaxis) { orien = N_X_AXIS; }
+    else if (n == yaxis)  { orien = Y_AXIS;   }
+    else if (n == -yaxis) { orien = N_Y_AXIS; }
+    else if (n == zaxis)  { orien = Z_AXIS;   }
+    else if (n == -zaxis) { orien = N_Z_AXIS; }
 
+    which = orien / 2;
     group = group_index[which][flagged_index];
 
     std::cerr << "which=" << which << ", orien=" << orien << ", group=" << group << std::endl;
@@ -677,13 +746,13 @@ void Rubik::HandleMouseMotionR(int mouseX, int mouseY)
     }
 }
 
-vec3f Rubik::ProjectToSphere(int mx, int my)
+vec3f Rubik::ProjectToSphere(int mouseX, int mouseY)
 {
     const float r = 1.0f;
 
     /* x and y are mapped to [-1, 1] */
-    float x = (mx * xscale) - 1.0f;
-    float y = 1.0f - (my * yscale);
+    float x = (mouseX * xscale) - 1.0f;
+    float y = 1.0f - (mouseY * yscale);
     float z;
 
     float length2 = x * x + y * y;
@@ -700,12 +769,12 @@ vec3f Rubik::ProjectToSphere(int mx, int my)
     return vec3f(x, y, z);
 }
 
-vec3f Rubik::Unproject(int mx, int my)
+vec3f Rubik::Unproject(int mouseX, int mouseY)
 {
     const float r = 40.0f;
 
     // it returns world coordinates but we need to fix the z value...
-    vec3f v = (unprojm * vec4f(mx, my, 1.0f / zdepth[my * width + mx], 1.0f)).Demote();
+    vec3f v = (unprojm * vec4f((float) mouseX, (float) mouseY, 1.0f / zdepth[mouseY * width + mouseX], 1.0f)).Demote();
 /*
     float x = v[0];
     float y = v[1];
@@ -723,7 +792,7 @@ vec3f Rubik::Unproject(int mx, int my)
     return v;
 }
 
-void Rubik::RotateSwap()
+void Rubik::RotateSwap(int group, int orien)
 {
     int i = rotation_group[group][0];
     int j = rotation_group[group][1];
@@ -788,13 +857,6 @@ void Rubik::RotateSwap()
     rubik_cube[l].position = rotate * rubik_cube[l].position;
 }
 
-void Rubik::SwapCubies(Cubie* pC1, Cubie* pC2)
-{
-    Cubie* pTmp = pC1;
-    pC1 = pC2;
-    pC2 = pTmp;
-}
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static Rubik app(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -818,6 +880,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {
         app.Show();
+        break;
+    }
+    case WM_KEYDOWN:
+    {
+        if (wParam == 0x53) // s key
+        {
+            app.StartScramble();
+        }
         break;
     }
     case WM_LBUTTONDOWN:
