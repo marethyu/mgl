@@ -169,7 +169,8 @@ namespace mygl
     {
         if (IsEqual<T>(s, 0))
         {
-            throw std::logic_error("[vector] division by zero");
+            // throw std::logic_error("[vector] division by zero");
+            return *this;
         }
 
         for (int i = 0; i < N; ++i)
