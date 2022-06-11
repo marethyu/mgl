@@ -577,6 +577,7 @@ void Rubik::Update()
         rotating = false;
         mouselock = false;
         scrambling = false;
+        flagged_index = flagged_face = -1;
     }
 }
 
